@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DIVERSA map</title>
+  <link href="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.14.0/index.min.css" rel="stylesheet" />
+  <style>
+    html,
+    body,
+
+
+    #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    #logo img {
+      position: absolute;
+      top: 10px;
+      /* distance from the top edge */
+      right: 10px;
+      /* distance from the right edge */
+      height: 5vw;
+      /* or whatever size you prefer */
+      width: auto;
+      opacity: 0.9;
+      z-index: 1;
+    }
+
+
+    .marker {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+      border: 2px solid white;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .marker:hover {
+      transform: scale(1.3);
+    }
+
+    .popup-content {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      width: 1200px;
+    }
+
+    .viewer-container {
+      width: 100%;
+      height: 675px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .popup-title {
+      margin: 0 0 6px 0;
+      font-size: 14px;
+    }
+
+    .maplibregl-popup-content {
+      padding: 12px;
+    }
+
+    #control {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1;
+      background: white;
+      padding: 4px 4px;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+      margin-right: 10px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 20px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: #2e3236;
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(20px);
+    }
+
+    .layer-label {
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="logo">
+    <a id="logo" href="https://zkfn.de/diversa/" target="_blank" rel="noopener noreferrer">
+      <img src="images/ZKfN_Logo_DIVERSA_RGB.png" alt="Logo">
+    </a>
+
+  </div>
+
+  <div id="map"></div>
+
+  <div id="control">
+    <label class="toggle-switch">
+      <input type="checkbox" id="toggle-wms">
+      <span class="slider"></span>
+    </label>
+    <span class="layer-label" id="wms-label">Imagery</span>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "@photo-sphere-viewer/core": "https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.14.0/index.module.js",
+        "@photo-sphere-viewer/autorotate-plugin": "https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/autorotate-plugin@5.14.0/index.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import { Viewer } from '@photo-sphere-viewer/core';
+    import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin';
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      hash: true,
+      zoom: 6.5,
+      center: [9, 53],
+      style: 'styles/bm_web_gry_naturwald.json',
+      maxZoom: 16,
+      maxPitch: 0,
+      maxBounds: [
+        [2.0, 47.0], // Southwest with buffer
+        [18.5, 55.5] // Northeast with buffer
+      ]
+    });
+
+    map.on('load', () => {
+      map.addSource('wms-source-sentinel2', {
+        'type': 'raster',
+        'tiles': [
+          'https://sgx.geodatenzentrum.de/wms_sentinel2_de?bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.3.0&request=GetMap&crs=EPSG:3857&dpiMode=7&styles=rgb&tilePixelRatio=0&transparent=true&width=256&height=256&contextualWMSLegend=0&layers=rgb_2018'
+        ],
+        'tileSize': 256
+      });
+
+      map.addSource('wms-source-ortho-ni', {
+        'type': 'raster',
+        'tiles': [
+          'https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms?bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.3.0&request=GetMap&crs=EPSG:3857&dpiMode=7&styles=default&tilePixelRatio=0&transparent=true&width=256&height=256&contextualWMSLegend=0&layers=ni_dop20'
+        ],
+        'tileSize': 256
+      });
+
+      map.addLayer(
+        {
+          'id': 'wms-sentinel2',
+          'type': 'raster',
+          'source': 'wms-source-sentinel2',
+          'paint': {},
+          'maxzoom': 14,
+          'layout': { 'visibility': 'none' }
+        }
+      );
+
+      map.addLayer(
+        {
+          'id': 'wms-ortho-ni',
+          'type': 'raster',
+          'source': 'wms-source-ortho-ni',
+          'paint': {},
+          'minzoom': 14,
+          'layout': { 'visibility': 'none' }
+        }
+      );
+
+      // Set up simplified layer toggle control
+      document.getElementById('toggle-wms').addEventListener('change', function (e) {
+        const visibility = e.target.checked ? 'visible' : 'none';
+
+        // Toggle both layers with the same control
+        map.setLayoutProperty('wms-sentinel2', 'visibility', visibility);
+        map.setLayoutProperty('wms-ortho-ni', 'visibility', visibility);
+      });
+
+    });
+
+    // disable map rotation using right click + drag
+    map.dragRotate.disable();
+
+    // disable map rotation using keyboard
+    map.keyboard.disable();
+
+    // disable map rotation using touch rotation gesture
+    map.touchZoomRotate.disableRotation();
+
+    const birdSoundUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+
+    // --- Load your GeoJSON ---
+    map.on('load', () => {
+      map.addSource('plots', {
+        type: 'geojson',
+        data: 'data/plots_diversa.geojson'
+      });
+
+      map.addLayer({
+        'id': 'plots-layer',
+        'type': 'circle',
+        'source': 'plots',
+        'paint': {
+          'circle-radius': 6,
+          'circle-stroke-width': 2,
+          'circle-color': [
+            'case',
+            ['==', ['get', 'plot_type'], 'managed'], 'dodgerblue',
+            ['==', ['get', 'plot_type'], 'rewilding'], 'mediumseagreen',
+            'red'
+          ],
+          'circle-stroke-color': 'white'
+        }
+      });
+
+      // Create a popup, but don't add it to the map yet.
+      const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false
+      });
+
+      map.on('mouseenter', 'plots-layer', (e) => {
+        // Change the cursor style as a UI indicator.
+        map.getCanvas().style.cursor = 'pointer';
+
+        // Copy coordinates array.
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const description = e.features[0].properties.plot_id;
+
+        // Ensure that if the map is zoomed out such that multiple
+        // copies of the feature are visible, the popup appears
+        // over the copy being pointed to.
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+
+        // Populate the popup and set its coordinates
+        // based on the feature found.
+        popup.setLngLat(coordinates).setHTML(description).addTo(map);
+      });
+
+      map.on('mouseleave', 'plots-layer', () => {
+        map.getCanvas().style.cursor = '';
+        popup.remove();
+      });
+
+      map.on('click', 'plots-layer', (e) => {
+        const center = map.getCenter();
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const properties = e.features[0].properties;
+        const plotType = properties.plot_type;
+        const plotId = properties.plot_id;
+
+        const typeColor = plotType === 'managed' ? 'dodgerblue' :
+          plotType === 'rewilding' ? 'mediumseagreen' : 'red';
+
+
+        let imageUrl360 = properties.image_url;
+
+
+
+        const birdSoundUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+
+        // Create popup HTML
+        const popupHtml = `
+        <div class="popup-content">
+          <h3 class="popup-title">
+            ${plotId}
+            <span style="color: ${typeColor}; font-weight: bold;">(${plotType})</span>
+          </h3>
+          <div class="viewer-container" id="viewer-${plotId}"></div>
+        </div>
+        `;
+
+        let markerHeight = 50, markerRadius = 10, linearOffset = 25;
+
+        const popup = new maplibregl.Popup({ maxWidth: '1600px' })
+          .setLngLat(center)
+          .setOffset(-500)
+          .setHTML(popupHtml)
+          .addTo(map);
+
+        let audio;
+        let fadeInterval;
+
+        setTimeout(() => {
+          const container = document.getElementById(`viewer-${plotId}`);
+          if (container) {
+
+            const formatDescription = (properties) => {
+              const imageUrlCHM = `images/chm/${properties.plot_id}.jpg`;
+              return `
+              Desease Water Stress Index (2018-2019): 
+              <br>
+              <strong>${properties.dwsi_strat}</strong>
+              <br>
+              <br>
+              <img src="${imageUrlCHM}" alt="Canopy Height Model" style="max-width: 100%;">`;
+            };
+
+            const viewer = new Viewer({
+              container,
+              panorama: imageUrl360,
+              description: formatDescription(properties),
+              navbar: ['autorotate', 'fullscreen', 'description'],
+              fisheye: true,
+              plugins: [
+                AutorotatePlugin.withConfig({
+                  autostartDelay: 1000,
+                  autorotateSpeed: '2rpm',
+                  autostartOnIdle: false
+                })
+              ]
+            });
+
+            const autorotate = viewer.getPlugin(AutorotatePlugin);
+            autorotate.start();
+
+            // Play bird sound with fade in
+            audio = new Audio(birdSoundUrl);
+            audio.volume = 0;
+            audio.play().catch(err => console.log('Autoplay blocked:', err));
+
+            // Fade in over 3 seconds
+            const targetVolume = 0.3;
+            const fadeInDuration = 3000; // 3 seconds
+            const fadeInSteps = 60;
+            const fadeInIncrement = targetVolume / fadeInSteps;
+            const fadeInInterval = fadeInDuration / fadeInSteps;
+
+            let currentStep = 0;
+            fadeInterval = setInterval(() => {
+              if (currentStep < fadeInSteps && audio) {
+                audio.volume = Math.min(fadeInIncrement * currentStep, targetVolume);
+                currentStep++;
+              } else {
+                clearInterval(fadeInterval);
+              }
+            }, fadeInInterval);
+          }
+        }, 200);
+
+        // Fade out and stop sound when popup closes
+        popup.on('close', () => {
+          if (audio) {
+            clearInterval(fadeInterval);
+
+            // Fade out over 3 seconds
+            const fadeOutDuration = 3000;
+            const fadeOutSteps = 60;
+            const startVolume = audio.volume;
+            const fadeOutDecrement = startVolume / fadeOutSteps;
+            const fadeOutInterval = fadeOutDuration / fadeOutSteps;
+
+            let currentStep = 0;
+            const fadeOut = setInterval(() => {
+              if (currentStep < fadeOutSteps && audio) {
+                audio.volume = Math.max(startVolume - (fadeOutDecrement * currentStep), 0);
+                currentStep++;
+              } else {
+                clearInterval(fadeOut);
+                if (audio) {
+                  audio.pause();
+                  audio.currentTime = 0;
+                }
+              }
+            }, fadeOutInterval);
+          }
+        });
+      });
+
+
+    });
+  </script>
+</body>
+
+</html>
