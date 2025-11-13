@@ -7,6 +7,7 @@
   <title>DIVERSA map</title>
   <link href="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.14.0/index.min.css" rel="stylesheet" />
+
   <style>
     html,
     body,
@@ -174,7 +175,7 @@
 
     const map = new maplibregl.Map({
       container: 'map',
-      hash: true,
+      //hash: true,
       zoom: 6.5,
       center: [9, 53],
       style: 'styles/bm_web_gry_naturwald.json',
@@ -185,6 +186,7 @@
         [18.5, 55.5] // Northeast with buffer
       ]
     });
+
 
     map.on('load', () => {
       map.addSource('wms-source-sentinel2', {
@@ -233,7 +235,6 @@
         map.setLayoutProperty('wms-sentinel2', 'visibility', visibility);
         map.setLayoutProperty('wms-ortho-ni', 'visibility', visibility);
       });
-
     });
 
     // disable map rotation using right click + drag
@@ -244,8 +245,6 @@
 
     // disable map rotation using touch rotation gesture
     map.touchZoomRotate.disableRotation();
-
-    const birdSoundUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
 
     // --- Load your GeoJSON ---
     map.on('load', () => {
@@ -315,9 +314,8 @@
 
         let imageUrl360 = properties.image_url;
 
-
-
-        const birdSoundUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        //const soundUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        let soundUrl = properties.sound_url;
 
         // Create popup HTML
         const popupHtml = `
@@ -374,13 +372,14 @@
             const autorotate = viewer.getPlugin(AutorotatePlugin);
             autorotate.start();
 
-            // Play bird sound with fade in
-            audio = new Audio(birdSoundUrl);
+            // Play sounds with fade in
+            audio = new Audio(soundUrl);
+            audio.loop = true;
             audio.volume = 0;
             audio.play().catch(err => console.log('Autoplay blocked:', err));
 
             // Fade in over 3 seconds
-            const targetVolume = 0.3;
+            const targetVolume = 0.5;
             const fadeInDuration = 3000; // 3 seconds
             const fadeInSteps = 60;
             const fadeInIncrement = targetVolume / fadeInSteps;
