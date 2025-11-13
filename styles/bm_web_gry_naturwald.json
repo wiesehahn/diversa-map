@@ -7815,7 +7815,7 @@
       },
       "paint": {
         "hillshade-method": "igor",
-                            "hillshade-exaggeration": 0.2,
+                            "hillshade-exaggeration": 0.5,
                             "hillshade-highlight-color": "rgb(255, 255, 228)",
                             "hillshade-shadow-color": "rgb(114, 124, 131)"
       }
