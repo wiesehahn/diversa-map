@@ -1862,7 +1862,7 @@
       },
       "paint": {
         "line-color": "rgb(204,204,204)",
-        "line-opacity": 1,
+        "line-opacity": 0,
         "line-width": {
           "stops": [
             [6,0],
@@ -1943,7 +1943,7 @@
       },
       "paint": {
         "fill-color": "rgb(204,204,204)",
-        "fill-opacity": 1
+        "fill-opacity": 0.1
       }
     },
     {
@@ -12186,7 +12186,7 @@
       "paint": {
         "line-color": "rgb(153,153,153)",
         "line-gap-width": 0,
-        "line-opacity": 1,
+        "line-opacity": 0.2,
         "line-width": {
           "stops": [
             [2,0.6],
