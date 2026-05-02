@@ -1,253 +1,536 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>DIVERSA map</title>
   <link href="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.14.0/index.min.css" rel="stylesheet" />
-
-  <script src='https://unpkg.com/@maplibre/maplibre-gl-inspect@latest/dist/maplibre-gl-inspect.js'></script>
-  <link href='https://unpkg.com/@maplibre/maplibre-gl-inspect@latest/dist/maplibre-gl-inspect.css' rel='stylesheet' />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
 
   <style>
-    html,
-    body,
+    *, *::before, *::after { box-sizing: border-box; }
 
-
-    #map {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      position: absolute;
-      inset: 0;
+    :root {
+      --c-bg:        #ffffff;
+      --c-surface:   #ffffff;
+      --c-border:    rgba(0,0,0,0.10);
+      --c-text:      #1a1a1a;
+      --c-muted:     rgba(0,0,0,0.40);
+      --c-managed:   #1a7abf;
+      --c-rewilding: #2a9e57;
+      --radius:      8px;
+      --font-ui:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --trans:       200ms cubic-bezier(.4,0,.2,1);
     }
 
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
+    body { background: #f0f0f0; font-family: var(--font-ui); }
 
-    #logo img {
-      position: absolute;
-      top: 10px;
-      /* distance from the top edge */
-      right: 10px;
-      /* distance from the right edge */
-      height: 5vw;
-      /* or whatever size you prefer */
-      width: auto;
-      opacity: 0.9;
-      z-index: 1;
+    /* ── Map ── */
+    #map { position: absolute; inset: 0; }
+
+    /* ── Logo ── */
+    #logo-wrap {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+    }
+    #logo-wrap img {
+      height: clamp(28px, 5vw, 52px); width: auto; opacity: .92;
     }
 
-
-    .marker {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
-      border: 2px solid white;
-      cursor: pointer;
-      transition: transform 0.15s ease;
+    /* ── Shared panel ── */
+    .panel {
+      position: absolute; z-index: 10;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      box-shadow: 0 2px 12px rgba(0,0,0,.15);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--c-text);
     }
 
-    .marker:hover {
-      transform: scale(1.3);
+    /* ── Imagery toggle ── */
+    #control {
+      bottom: 28px; left: 10px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px;
     }
-
-    .popup-content {
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-      width: 1200px;
+    .toggle-switch {
+      position: relative; display: inline-block;
+      width: 36px; height: 20px; flex-shrink: 0;
     }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: #ccc; border-radius: 20px;
+      transition: background var(--trans);
+    }
+    .slider::before {
+      content: ''; position: absolute;
+      width: 14px; height: 14px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%;
+      transition: transform var(--trans);
+    }
+    input:checked + .slider { background: #2e3236; }
+    input:checked + .slider::before { transform: translateX(16px); }
+    .layer-label { cursor: pointer; color: var(--c-text); font-size: 13px; }
 
-    .viewer-container {
-      width: 100%;
-      height: 675px;
-      border-radius: 6px;
+    /* ── Disturbance legend (desktop) ── */
+    #disturbanceLegend {
+      top: 10px; left: 10px; min-width: 128px; overflow: hidden;
+    }
+    @media (max-width: 600px) { #disturbanceLegend { display: none; } }
+
+    #disturbanceLegend h3 {
+      margin: 0; padding: 9px 12px;
+      font-size: 12px; font-weight: 500;
+      color: var(--c-muted);
+      border-bottom: 1px solid var(--c-border);
+      cursor: pointer; user-select: none;
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      letter-spacing: .02em;
+    }
+    #disturbanceLegend h3::after {
+      content: '▸'; font-size: 9px;
+      transition: transform var(--trans);
+    }
+    #disturbanceLegend.active h3::after { transform: rotate(90deg); }
+    #disturbanceLegend h3:hover { color: var(--c-text); }
+
+    #legend-items { display: none; padding: 5px; }
+    #disturbanceLegend.active #legend-items { display: block; }
+
+    .legend-item {
+      display: flex; align-items: center; gap: 7px;
+      padding: 4px 7px; border-radius: 5px; cursor: pointer;
+      font-size: 12px; transition: background var(--trans);
+    }
+    .legend-item:hover { background: rgba(0,0,0,.05); }
+    .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .legend-item.off { opacity: .3; }
+
+    /* ── Mobile legend button ── */
+    #mobile-legend-btn {
+      display: none;
+      position: absolute; top: 10px; left: 10px; z-index: 10;
+      align-items: center; gap: 7px; padding: 7px 12px;
+      background: white; border: 1px solid var(--c-border);
+      border-radius: var(--radius); color: var(--c-muted);
+      font-family: var(--font-ui); font-size: 12px;
+      cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,.15);
+    }
+    @media (max-width: 600px) { #mobile-legend-btn { display: flex; } }
+
+    /* ── Mobile legend bottom sheet ── */
+    #mobile-legend-sheet {
+      display: none;
+      position: fixed; inset: auto 0 0 0; z-index: 200;
+      background: white; border-top: 1px solid var(--c-border);
+      border-radius: 14px 14px 0 0; padding: 16px 16px 32px;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+    }
+    #mobile-legend-sheet.open { transform: translateY(0); }
+    @media (max-width: 600px) { #mobile-legend-sheet { display: block; } }
+
+    .sheet-handle {
+      width: 32px; height: 4px; background: rgba(0,0,0,.15);
+      border-radius: 2px; margin: 0 auto 14px;
+    }
+    .sheet-title {
+      font-size: 11px; font-weight: 500; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--c-muted); margin-bottom: 10px;
+    }
+    .sheet-legend-items { display: flex; flex-wrap: wrap; gap: 7px; }
+    .sheet-legend-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 9px; border-radius: 6px;
+      background: rgba(0,0,0,.04); font-size: 12px; cursor: pointer;
+    }
+    .sheet-legend-item.off { opacity: .3; }
+
+    /* ────────────────────────────────────────────────────────────
+       Full-window plot modal
+       Two "pages" stacked vertically with scroll-snap.
+       Page 1 = 360 viewer (100dvh), fills entire screen.
+       Page 2 = LiDAR (100dvh), snaps to full screen too.
+    ──────────────────────────────────────────────────────────── */
+    #plot-modal {
+      display: none;
+      position: fixed; inset: 0; z-index: 100;
+      background: #000;
+      flex-direction: column;
       overflow: hidden;
+    }
+    #plot-modal.open { display: flex; }
+
+    /* Snap-scroll wrapper */
+    #modal-scroll {
+      flex: 1;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+      /* hide scrollbar visually */
+      scrollbar-width: none;
+    }
+    #modal-scroll::-webkit-scrollbar { display: none; }
+
+    /* ── Page 1: 360 viewer ── */
+    #viewer-page {
+      position: relative;
+      width: 100%;
+      height: 100dvh;      /* true full-viewport height */
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    #viewer-container {
+      position: absolute; inset: 0;
       background: #000;
     }
 
-    .popup-title {
-      margin: 0 0 6px 0;
-      font-size: 14px;
+    /* Header overlay on top of 360 — title only, X is separate absolute element */
+    #modal-header {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+      padding: 14px 14px 52px;
+      background: linear-gradient(to bottom, rgba(0,0,0,.6) 0%, transparent 100%);
+      pointer-events: none;
     }
 
+    #modal-plot-title {
+      font-size: clamp(14px, 2.5vw, 19px);
+      font-weight: 500; color: #fff;
+      letter-spacing: .01em;
+      text-shadow: 0 1px 4px rgba(0,0,0,.5);
+    }
+    #modal-plot-type {
+      font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+      margin-top: 3px; color: rgba(255,255,255,.75);
+      text-shadow: 0 1px 3px rgba(0,0,0,.45);
+    }
+
+    /* ── Shared round X close button — same on both pages ── */
+    .page-close-btn {
+      position: absolute; top: 14px; right: 14px; z-index: 30;
+      background: rgba(0,0,0,.32); border: none; cursor: pointer;
+      color: #fff; padding: 0; flex-shrink: 0;
+      border-radius: 50%; width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--trans);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .page-close-btn:hover { background: rgba(0,0,0,.58); }
+    .page-close-btn svg { width: 16px; height: 16px; }
+    /* On lidar page the button sits over white, so use dark style */
+    #lidar-close {
+      background: rgba(0,0,0,.10);
+      color: #333;
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    #lidar-close:hover { background: rgba(0,0,0,.22); }
+
+    /* ── LiDAR pill — flat horizontal, arrow + text, bottom center of viewer page ── */
+    #scroll-hint {
+      position: absolute; bottom: 18px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999; pointer-events: auto; cursor: pointer;
+      color: #fff;
+      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+      display: flex; flex-direction: row; align-items: center; gap: 6px;
+      animation: hintBob 2.2s ease-in-out infinite;
+      background: rgba(0,0,0,.42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      padding: 7px 14px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.18);
+      white-space: nowrap; font-family: var(--font-ui);
+      transition: background var(--trans);
+    }
+    #scroll-hint:hover { background: rgba(0,0,0,.62); animation-play-state: paused; }
+    #scroll-hint svg { width: 14px; height: 14px; flex-shrink: 0; }
+    @keyframes hintBob {
+      0%,100% { transform: translateX(-50%) translateY(0);   opacity: .9; }
+      50%      { transform: translateX(-50%) translateY(5px); opacity: 1; }
+    }
+
+    /* ── Back-to-360 — flat horizontal pill, top center of lidar page, light style ── */
+    #back-to-360 {
+      position: absolute; top: 58px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 10; cursor: pointer;
+      color: var(--c-muted);
+      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+      display: flex; flex-direction: row; align-items: center; gap: 6px;
+      background: rgba(0,0,0,.07); border: 1px solid rgba(0,0,0,.10);
+      padding: 7px 14px; border-radius: 20px;
+      white-space: nowrap; font-family: var(--font-ui);
+      transition: background var(--trans), color var(--trans);
+    }
+    #back-to-360:hover { background: rgba(0,0,0,.13); color: var(--c-text); }
+    #back-to-360 svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* ── Page 2: LiDAR ── */
+    #lidar-page {
+      position: relative; /* needed for absolute children */
+      width: 100%;
+      height: 100dvh;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      background: #f5f5f3;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    #lidar-header {
+      display: flex; align-items: center;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      background: white; flex-shrink: 0;
+    }
+    #lidar-header h4 {
+      margin: 0; font-size: 11px; font-weight: 500;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--c-muted);
+    }
+
+    /* LiDAR images fill the remaining height */
+    #lidar-body {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #lidar-images {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 14px;
+      width: 100%; height: 100%;
+      max-height: 100%;
+    }
+    @media (max-width: 600px) {
+      #lidar-images {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+      }
+      #lidar-body { padding: 12px; }
+    }
+
+    .lidar-card {
+      position: relative; cursor: zoom-in;
+      border-radius: 8px; overflow: hidden;
+      background: #ddd;
+      box-shadow: 0 2px 14px rgba(0,0,0,.14);
+      transition: transform var(--trans), box-shadow var(--trans);
+      /* fill grid cell */
+      min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .lidar-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(0,0,0,.2);
+    }
+    .lidar-card img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+      flex: 1; min-height: 0;
+    }
+    .lidar-card-label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 24px 10px 8px;
+      background: linear-gradient(to top, rgba(0,0,0,.58), transparent);
+      font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+      color: rgba(255,255,255,.85);
+    }
+    .lidar-card-zoom {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(255,255,255,.88); border-radius: 4px;
+      padding: 3px 6px; font-size: 10px; color: #333;
+      opacity: 0; transition: opacity var(--trans);
+    }
+    .lidar-card:hover .lidar-card-zoom { opacity: 1; }
+
+    /* ── Lightbox ── */
+    #lightbox {
+      display: none;
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(255,255,255,.96);
+      align-items: center; justify-content: center;
+      padding: 20px; cursor: zoom-out;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img {
+      max-width: 100%; max-height: 100%;
+      object-fit: contain; border-radius: 4px;
+      cursor: default; box-shadow: 0 8px 40px rgba(0,0,0,.18);
+    }
+    #lightbox-close {
+      position: absolute; top: 14px; right: 14px;
+      background: rgba(0,0,0,.08); border: none; cursor: pointer;
+      color: #333; border-radius: 50%;
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--trans);
+    }
+    #lightbox-close:hover { background: rgba(0,0,0,.16); }
+    #lightbox-caption {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+      color: rgba(0,0,0,.35); white-space: nowrap;
+    }
+
+    /* ── PSV overrides ── */
+    .psv-panel-content {
+      background: rgba(255,255,255,.95) !important;
+      color: #1a1a1a !important;
+    }
+    .psv-panel-resizer { background: rgba(0,0,0,.08) !important; }
+
+    /* ── MapLibre hover popup ── */
     .maplibregl-popup-content {
-      padding: 12px;
+      background: white !important;
+      color: #1a1a1a !important;
+      font-family: var(--font-ui) !important;
+      font-size: 12px !important;
+      padding: 5px 9px !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(0,0,0,.1) !important;
+      box-shadow: 0 2px 10px rgba(0,0,0,.15) !important;
     }
-
-    #control {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1;
-      background: white;
-      padding: 4px 4px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      align-items: center;
-      color: #000000;
-      font-size: 15px;
-    }
-
-    .toggle-switch {
-      position: relative;
-      display: inline-block;
-      width: 40px;
-      height: 20px;
-      margin-right: 20px;
-      margin-left: 20px;
-    }
-
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: .4s;
-      border-radius: 20px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 16px;
-      width: 16px;
-      left: 2px;
-      bottom: 2px;
-      background-color: white;
-      transition: .4s;
-      border-radius: 50%;
-    }
-
-    input:checked+.slider {
-      background-color: #2e3236;
-    }
-
-    input:checked+.slider:before {
-      transform: translateX(20px);
-    }
-
-    .layer-label {
-      cursor: pointer;
-    }
-
-
-    #disturbanceLegend {
-      background: white;
-      position: absolute;
-      z-index: 1;
-      top: 40px;
-      left: 10px;
-      border-radius: 8px;
-      width: 140px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-
-    #disturbanceLegend h3 {
-      color: #000000;
-      font-size: 15px;
-      margin: 0;
-      padding: 12px 16px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    #disturbanceLegend a {
-      font-size: 14px;
-      color: #000000;
-      display: block;
-      margin: 4px;
-      padding: 12px 16px;
-      text-decoration: none;
-      border-radius: 6px;
-      text-align: center;
-      transition: all 0.2s ease;
-    }
-
-    /* Layer colors when active */
-    #disturbanceLegend a[data-layer="disturbances-2018"] {
-      background-color: #7277fe;
-      color: #fff;
-    }
-
-    #disturbanceLegend a[data-layer="disturbances-2019"] {
-      background-color: #6c92f0;
-      color: #fff;
-    }
-
-    #disturbanceLegend a[data-layer="disturbances-2020"] {
-      background-color: #66ade1;
-      color: #fff;
-    }
-
-    #disturbanceLegend a[data-layer="disturbances-2021"] {
-      background-color: #5fc9d3;
-      color: #fff;
-    }
-
-    #disturbanceLegend a[data-layer="disturbances-2022"] {
-      background-color: #59e4c5;
-      color: #000;
-    }
-
-    #disturbanceLegend a[data-layer="disturbances-2023"] {
-      background-color: #acf2e2;
-      color: #000;
-    }
-
-    #disturbanceLegend a[data-layer="disturbances-2024"] {
-      background-color: #d6f9f1;
-      color: #000;
-    }
-
-
-.psv-panel-content {
-    background: rgba(255, 255, 255, 0.9) !important;  /* bright */
-    color: #000 !important;                           /* dark text */
-}
-.psv-panel-resizer {
-    background: rgba(255, 255, 255, 1) !important;  /* bright */
-    color: #000 !important;                           /* dark text */
-}
+    .maplibregl-popup-tip { display: none !important; }
   </style>
 </head>
-
 <body>
-  <div id="logo">
-    <a id="logo" href="https://zkfn.de/diversa/" target="_blank" rel="noopener noreferrer">
-      <img src="images/ZKfN_Logo_DIVERSA_RGB.webp" alt="Logo">
+
+  <!-- Logo -->
+  <div id="logo-wrap">
+    <a href="https://zkfn.de/diversa/" target="_blank" rel="noopener noreferrer">
+      <img src="images/ZKfN_Logo_DIVERSA_RGB.webp" alt="DIVERSA Logo" />
     </a>
   </div>
 
-
-  <nav id="disturbanceLegend">
+  <!-- Disturbance legend (desktop) -->
+  <nav class="panel" id="disturbanceLegend">
     <h3 id="disturbanceLegend-title">Waldschäden</h3>
+    <div id="legend-items"></div>
   </nav>
 
+  <!-- Mobile legend button -->
+  <button id="mobile-legend-btn" aria-label="Waldschäden anzeigen">
+    <svg width="13" height="13" viewBox="0 0 12 12" fill="none">
+      <rect x="0" y="0" width="5" height="5" rx="1" fill="currentColor"/>
+      <rect x="7" y="0" width="5" height="5" rx="1" fill="currentColor"/>
+      <rect x="0" y="7" width="5" height="5" rx="1" fill="currentColor"/>
+      <rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor"/>
+    </svg>
+    Waldschäden
+  </button>
+
+  <!-- Mobile legend bottom sheet -->
+  <div id="mobile-legend-sheet" role="dialog">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Waldschäden</div>
+    <div class="sheet-legend-items" id="mobile-legend-items"></div>
+  </div>
+  <div id="mobile-legend-overlay"
+       style="display:none;position:fixed;inset:0;z-index:199;"
+       onclick="closeMobileSheet()"></div>
+
+  <!-- Map -->
   <div id="map"></div>
 
-  <div id="control">
-    <label class="toggle-switch">
-      <input type="checkbox" id="toggle-wms">
+  <!-- Imagery toggle -->
+  <div class="panel" id="control">
+    <label class="toggle-switch" aria-label="Luftbild umschalten">
+      <input type="checkbox" id="toggle-wms" />
       <span class="slider"></span>
     </label>
-    <span class="layer-label" id="wms-label">Imagery</span>
+    <span class="layer-label">Luftbild</span>
   </div>
 
+  <!-- ── Full-window plot modal ── -->
+  <div id="plot-modal" role="dialog" aria-modal="true" aria-labelledby="modal-plot-title">
+    <div id="modal-scroll">
+
+      <!-- Page 1: 360 viewer, true full-window -->
+      <div id="viewer-page">
+        <div id="viewer-container"></div>
+
+        <!-- Title overlaid top-left -->
+        <div id="modal-header">
+          <div>
+            <div id="modal-plot-title"></div>
+            <div id="modal-plot-type"></div>
+          </div>
+        </div>
+
+        <!-- X close — top right -->
+        <button id="modal-close" class="page-close-btn" aria-label="Schließen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+
+        <!-- Scroll-down hint -->
+        <div id="scroll-hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+          LiDAR
+        </div>
+      </div>
+
+      <!-- Page 2: LiDAR, also full-window -->
+      <div id="lidar-page">
+        <!-- X close — top right, same style but light -->
+        <button id="lidar-close" class="page-close-btn" aria-label="Schließen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+
+        <div id="lidar-header">
+          <h4>LiDAR — Bestandsstruktur</h4>
+        </div>
+        <div id="lidar-body">
+          <div id="lidar-images">
+            <div class="lidar-card" id="lidar-sideview" tabindex="0" role="button" aria-label="Seitenansicht vergrößern">
+              <img id="lidar-sideview-img" src="" alt="LiDAR Seitenansicht" loading="lazy" />
+              <div class="lidar-card-label">Seitenansicht</div>
+              <div class="lidar-card-zoom">⤢ Vergrößern</div>
+            </div>
+            <div class="lidar-card" id="lidar-topview" tabindex="0" role="button" aria-label="Draufsicht vergrößern">
+              <img id="lidar-topview-img" src="" alt="LiDAR Draufsicht" loading="lazy" />
+              <div class="lidar-card-label">Draufsicht</div>
+              <div class="lidar-card-zoom">⤢ Vergrößern</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Back-to-360 pill — centered bottom, same style as LiDAR pill -->
+        <button id="back-to-360" aria-label="Zurück zur 360°-Ansicht">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"/>
+          </svg>
+          360°
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Lightbox ── -->
+  <div id="lightbox" role="dialog" aria-modal="true">
+    <button id="lightbox-close" aria-label="Schließen">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" />
+    <div id="lightbox-caption"></div>
+  </div>
+
+  <!-- ── Scripts ── -->
   <script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
   <script type="importmap">
@@ -259,176 +542,147 @@
       }
     }
   </script>
+
   <script>
-    let protocol = new pmtiles.Protocol({ metadata: true });
+    const protocol = new pmtiles.Protocol({ metadata: true });
     maplibregl.addProtocol("pmtiles", protocol.tile);
+
+    function closeMobileSheet() {
+      document.getElementById('mobile-legend-sheet').classList.remove('open');
+      document.getElementById('mobile-legend-overlay').style.display = 'none';
+    }
   </script>
+
   <script type="module">
     import { Viewer } from '@photo-sphere-viewer/core';
     import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin';
 
+    /* ── Map ── */
     const map = new maplibregl.Map({
       container: 'map',
-      //hash: true,
-      zoom: 6.5,
-      center: [9, 53],
+      zoom: 6.5, center: [9, 53],
       style: 'styles/bm_web_gry_naturwald.json',
-      maxZoom: 16,
-      maxPitch: 0,
-      maxBounds: [
-        [2.0, 47.0], // Southwest with buffer
-        [18.5, 55.5] // Northeast with buffer
-      ]
+      maxZoom: 16, maxPitch: 0,
+      maxBounds: [[2.0, 47.0], [18.5, 55.5]]
     });
-
-    //map.addControl(new MaplibreInspect());
-
-
-
-
-    // add optional background imagery
-    map.on('load', () => {
-      map.addSource('wms-source-sentinel2', {
-        'type': 'raster',
-        'tiles': [
-          'https://sgx.geodatenzentrum.de/wms_sentinel2_de?bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.3.0&request=GetMap&crs=EPSG:3857&dpiMode=7&styles=rgb&tilePixelRatio=0&transparent=true&width=256&height=256&contextualWMSLegend=0&layers=rgb_2018'
-        ],
-        'tileSize': 256
-      });
-
-      map.addSource('wms-source-ortho-ni', {
-        'type': 'raster',
-        'tiles': [
-          'https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms?bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.3.0&request=GetMap&crs=EPSG:3857&dpiMode=7&styles=default&tilePixelRatio=0&transparent=true&width=256&height=256&contextualWMSLegend=0&layers=ni_dop20'
-        ],
-        'tileSize': 256
-      });
-
-      map.addLayer(
-        {
-          'id': 'wms-sentinel2',
-          'type': 'raster',
-          'source': 'wms-source-sentinel2',
-          'paint': {},
-          'maxzoom': 14,
-          'layout': { 'visibility': 'none' }
-        }
-      );
-
-      map.addLayer(
-        {
-          'id': 'wms-ortho-ni',
-          'type': 'raster',
-          'source': 'wms-source-ortho-ni',
-          'paint': {},
-          'minzoom': 14,
-          'layout': { 'visibility': 'none' }
-        }
-      );
-
-      // Set up simplified layer toggle control
-      document.getElementById('toggle-wms').addEventListener('change', function (e) {
-        const visibility = e.target.checked ? 'visible' : 'none';
-
-        // Toggle both layers with the same control
-        map.setLayoutProperty('wms-sentinel2', 'visibility', visibility);
-        map.setLayoutProperty('wms-ortho-ni', 'visibility', visibility);
-      });
-
-
-    });
-
-    
-    // add disturbance layers via PMtiles
-    map.on('load', () => {
-
-// PMTiles Disturbance source
-map.addSource('disturbances', {
-  type: 'vector',
-  url: "pmtiles://https://raw.githubusercontent.com/wiesehahn/webmaps/main/data/disturbances_2018_2024.pmtiles",
-});
-
-const years = {
-  "2018": "#7277fe",
-  "2019": "#6c92f0",
-  "2020": "#66ade1",
-  "2021": "#5fc9d3",
-  "2022": "#59e4c5",
-  "2023": "#acf2e2",
-  "2024": "#d6f9f1"
-};
-
-const layerIds = [];
-
-// Add layers initially hidden
-Object.entries(years).forEach(([year, color]) => {
-  const layerId = 'disturbances-' + year;
-  layerIds.push(layerId);
-  map.addLayer({
-    id: layerId,
-    type: 'fill',
-    filter: ["==", ["geometry-type"], "Polygon"],
-    source: 'disturbances',
-    'source-layer': year,
-    paint: { "fill-color": color },
-    layout: { visibility: 'none' } // start hidden
-  });
-});
-
-const disturbanceLegend = document.getElementById('disturbanceLegend');
-const title = document.getElementById('disturbanceLegend-title');
-let active = false; // layers initially off
-
-title.onclick = () => {
-  active = !active;
-
-  layerIds.forEach(id => {
-    map.setLayoutProperty(id, 'visibility', active ? 'visible' : 'none');
-  });
-
-  // Remove old legend entries
-  const oldLinks = disturbanceLegend.querySelectorAll('a');
-  oldLinks.forEach(a => a.remove());
-
-  // If active, add legend entries
-  if (active) {
-    Object.entries(years).forEach(([year, color]) => {
-      const link = document.createElement('a');
-      link.setAttribute('data-layer', 'disturbances-' + year);
-      link.textContent = year;
-      disturbanceLegend.appendChild(link);
-    });
-  }
-};
-
-});
-
-    // disable map rotation using right click + drag
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.dragRotate.disable();
-
-    // disable map rotation using keyboard
     map.keyboard.disable();
-
-    // disable map rotation using touch rotation gesture
     map.touchZoomRotate.disableRotation();
 
-    // --- Load your GeoJSON ---
+    /* ── WMS imagery ── */
     map.on('load', () => {
-      map.addSource('plots', {
-        type: 'geojson',
-        data: 'data/plots_diversa.geojson'
+      map.addSource('wms-sentinel2', {
+        type: 'raster',
+        tiles: ['https://sgx.geodatenzentrum.de/wms_sentinel2_de?bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.3.0&request=GetMap&crs=EPSG:3857&dpiMode=7&styles=rgb&tilePixelRatio=0&transparent=true&width=256&height=256&contextualWMSLegend=0&layers=rgb_2018'],
+        tileSize: 256
       });
+      map.addSource('wms-ortho-ni', {
+        type: 'raster',
+        tiles: ['https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms?bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.3.0&request=GetMap&crs=EPSG:3857&dpiMode=7&styles=default&tilePixelRatio=0&transparent=true&width=256&height=256&contextualWMSLegend=0&layers=ni_dop20'],
+        tileSize: 256
+      });
+      map.addLayer({ id: 'wms-sentinel2', type: 'raster', source: 'wms-sentinel2', maxzoom: 14, layout: { visibility: 'none' } });
+      map.addLayer({ id: 'wms-ortho-ni',  type: 'raster', source: 'wms-ortho-ni',  minzoom: 14, layout: { visibility: 'none' } });
+      document.getElementById('toggle-wms').addEventListener('change', e => {
+        const v = e.target.checked ? 'visible' : 'none';
+        map.setLayoutProperty('wms-sentinel2', 'visibility', v);
+        map.setLayoutProperty('wms-ortho-ni',  'visibility', v);
+      });
+    });
 
+    /* ── Disturbance layers ── */
+    const YEARS = {
+      '2018': '#7277fe', '2019': '#6c92f0', '2020': '#66ade1',
+      '2021': '#5fc9d3', '2022': '#59e4c5', '2023': '#acf2e2', '2024': '#d6f9f1'
+    };
+    const yearActive = Object.fromEntries(Object.keys(YEARS).map(y => [y, true]));
+    let disturbancesOn = false;
+
+    map.on('load', () => {
+      map.addSource('disturbances', {
+        type: 'vector',
+        url: 'pmtiles://https://raw.githubusercontent.com/wiesehahn/webmaps/main/data/disturbances_2018_2024.pmtiles'
+      });
+      Object.entries(YEARS).forEach(([year, color]) => {
+        map.addLayer({
+          id: 'disturbances-' + year, type: 'fill',
+          filter: ['==', ['geometry-type'], 'Polygon'],
+          source: 'disturbances', 'source-layer': year,
+          paint: { 'fill-color': color, 'fill-opacity': 0.75 },
+          layout: { visibility: 'none' }
+        });
+      });
+      buildDesktopLegend();
+      buildMobileLegend();
+    });
+
+    function buildDesktopLegend() {
+      const c = document.getElementById('legend-items');
+      c.innerHTML = '';
+      Object.entries(YEARS).forEach(([year, color]) => {
+        const el = document.createElement('div');
+        el.className = 'legend-item' + (yearActive[year] ? '' : ' off');
+        el.dataset.year = year;
+        el.innerHTML = `<div class="legend-swatch" style="background:${color}"></div><span>${year}</span>`;
+        el.addEventListener('click', e => { e.stopPropagation(); toggleYear(year); });
+        c.appendChild(el);
+      });
+    }
+
+    function buildMobileLegend() {
+      const c = document.getElementById('mobile-legend-items');
+      c.innerHTML = '';
+      Object.entries(YEARS).forEach(([year, color]) => {
+        const el = document.createElement('div');
+        el.className = 'sheet-legend-item' + (yearActive[year] ? '' : ' off');
+        el.dataset.year = year;
+        el.innerHTML = `<div class="legend-swatch" style="background:${color}"></div><span>${year}</span>`;
+        el.addEventListener('click', () => toggleYear(year));
+        c.appendChild(el);
+      });
+    }
+
+    function toggleYear(year) {
+      if (!disturbancesOn) return;
+      yearActive[year] = !yearActive[year];
+      map.setLayoutProperty('disturbances-' + year, 'visibility', yearActive[year] ? 'visible' : 'none');
+      document.querySelectorAll(`[data-year="${year}"]`).forEach(el => {
+        el.classList.toggle('off', !yearActive[year]);
+      });
+    }
+
+    document.getElementById('disturbanceLegend-title').addEventListener('click', () => {
+      disturbancesOn = !disturbancesOn;
+      document.getElementById('disturbanceLegend').classList.toggle('active', disturbancesOn);
+      Object.keys(YEARS).forEach(year => {
+        map.setLayoutProperty('disturbances-' + year, 'visibility',
+          (disturbancesOn && yearActive[year]) ? 'visible' : 'none');
+      });
+    });
+
+    document.getElementById('mobile-legend-btn').addEventListener('click', () => {
+      if (!disturbancesOn) {
+        disturbancesOn = true;
+        Object.keys(YEARS).forEach(year => {
+          map.setLayoutProperty('disturbances-' + year, 'visibility', yearActive[year] ? 'visible' : 'none');
+        });
+      }
+      document.getElementById('mobile-legend-sheet').classList.add('open');
+      document.getElementById('mobile-legend-overlay').style.display = 'block';
+    });
+
+    /* ── Plot markers ── */
+    map.on('load', () => {
+      map.addSource('plots', { type: 'geojson', data: 'data/plots_diversa.geojson' });
       map.addLayer({
-        'id': 'plots-layer',
-        'type': 'circle',
-        'source': 'plots',
-        'paint': {
-          'circle-radius': 6,
+        id: 'plots-layer', type: 'circle', source: 'plots',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 5, 14, 9],
           'circle-stroke-width': 2,
           'circle-color': [
             'case',
-            ['==', ['get', 'plot_type'], 'managed'], 'dodgerblue',
+            ['==', ['get', 'plot_type'], 'managed'],   'dodgerblue',
             ['==', ['get', 'plot_type'], 'rewilding'], 'mediumseagreen',
             'red'
           ],
@@ -436,170 +690,161 @@ title.onclick = () => {
         }
       });
 
-      // Create a popup, but don't add it to the map yet.
-      const popup = new maplibregl.Popup({
-        closeButton: false,
-        closeOnClick: false
-      });
-
-      map.on('mouseenter', 'plots-layer', (e) => {
-        // Change the cursor style as a UI indicator.
+      const tooltip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
+      map.on('mouseenter', 'plots-layer', e => {
         map.getCanvas().style.cursor = 'pointer';
-
-        // Copy coordinates array.
-        const coordinates = e.features[0].geometry.coordinates.slice();
-        const description = e.features[0].properties.plot_id;
-
-        // Ensure that if the map is zoomed out such that multiple
-        // copies of the feature are visible, the popup appears
-        // over the copy being pointed to.
-        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-        }
-
-        // Populate the popup and set its coordinates
-        // based on the feature found.
-        popup.setLngLat(coordinates).setHTML(description).addTo(map);
+        const coords = e.features[0].geometry.coordinates.slice();
+        tooltip.setLngLat(coords)
+          .setHTML(`<strong>${e.features[0].properties.plot_id}</strong>`)
+          .addTo(map);
       });
-
       map.on('mouseleave', 'plots-layer', () => {
         map.getCanvas().style.cursor = '';
-        popup.remove();
+        tooltip.remove();
       });
+      map.on('click', 'plots-layer', e => openPlotModal(e.features[0].properties));
+    });
 
-      map.on('click', 'plots-layer', (e) => {
-        const center = map.getCenter();
-        const coordinates = e.features[0].geometry.coordinates.slice();
-        const properties = e.features[0].properties;
-        const plotType = properties.plot_type;
-        const plotId = properties.plot_id;
+    /* ── Modal ── */
+    let activeAudio = null, activeFadeId = null, activeViewer = null;
 
-        const typeColor = plotType === 'managed' ? 'dodgerblue' :
-          plotType === 'rewilding' ? 'mediumseagreen' : 'red';
+    function openPlotModal(props) {
+      const { plot_id, plot_type, image_url, sound_url } = props;
 
+      // Reset to first page (360)
+      document.getElementById('modal-scroll').scrollTop = 0;
 
-        let imageUrl360 = properties.image_url;
+      // Header info
+      document.getElementById('modal-plot-title').textContent = plot_id;
+      const typeEl = document.getElementById('modal-plot-type');
+      typeEl.textContent = plot_type;
+      typeEl.style.color = plot_type === 'managed'
+        ? 'rgba(120,210,255,.9)' : 'rgba(100,240,160,.9)';
 
-        //const soundUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-        let soundUrl = properties.sound_url;
+      // LiDAR
+      document.getElementById('lidar-sideview-img').src = `images/sideview/${plot_id}.webp`;
+      document.getElementById('lidar-topview-img').src  = `images/topview/${plot_id}.webp`;
 
-        // Create popup HTML
-        const popupHtml = `
-        <div class="popup-content">
-          <h3 class="popup-title">
-            ${plotId}
-            <span style="color: ${typeColor}; font-weight: bold;">(${plotType})</span>
-          </h3>
-          <div class="viewer-container" id="viewer-${plotId}"></div>
-        </div>
-        `;
+      // Show
+      document.getElementById('plot-modal').classList.add('open');
+      document.body.style.overflow = 'hidden';
 
-        let markerHeight = 50, markerRadius = 10, linearOffset = 25;
+      // 360 viewer
+      if (activeViewer) { try { activeViewer.destroy(); } catch(e) {} activeViewer = null; }
+      const container = document.getElementById('viewer-container');
+      container.innerHTML = '';
 
-        const popup = new maplibregl.Popup({ maxWidth: '1600px' })
-          .setLngLat(center)
-          .setOffset(-500)
-          .setHTML(popupHtml)
-          .addTo(map);
-
-        let audio;
-        let fadeInterval;
-
-        setTimeout(() => {
-          const container = document.getElementById(`viewer-${plotId}`);
-          if (container) {
-
-            const formatDescription = (properties) => {
-              //const imageUrlCHM = `images/chm/${properties.plot_id}.jpg`;
-              //const imageUrlCHM = `images/rotating/${properties.plot_id}.webp`;
-              const imageUrlTopview = `images/topview/${properties.plot_id}.webp`;
-              const imageUrlSideview = `images/sideview/${properties.plot_id}.webp`;
-              return `
-              Desease Water Stress Index (2018-2019): 
-              <br>
-              <strong>${properties.dwsi_strat}</strong>
-              <br>
-              <br>
-              <img src="${imageUrlSideview}" alt="Lidar Sideview" style="max-width: 100%;">
-              <br>
-              <img src="${imageUrlTopview}" alt="Lidar Topview" style="max-width: 100%;">`
-            };
-
-            const viewer = new Viewer({
-              container,
-              panorama: imageUrl360,
-              description: formatDescription(properties),
-              navbar: ['autorotate', 'fullscreen', 'description'],
-              fisheye: true,
-              plugins: [
-                AutorotatePlugin.withConfig({
-                  autostartDelay: 1000,
-                  autorotateSpeed: '2rpm',
-                  autostartOnIdle: false
-                })
-              ]
-            });
-
-            const autorotate = viewer.getPlugin(AutorotatePlugin);
-            autorotate.start();
-
-            // Play sounds with fade in
-            audio = new Audio(soundUrl);
-            audio.loop = true;
-            audio.volume = 0;
-            audio.play().catch(err => console.log('Autoplay blocked:', err));
-
-            // Fade in over 3 seconds
-            const targetVolume = 0.5;
-            const fadeInDuration = 3000; // 3 seconds
-            const fadeInSteps = 60;
-            const fadeInIncrement = targetVolume / fadeInSteps;
-            const fadeInInterval = fadeInDuration / fadeInSteps;
-
-            let currentStep = 0;
-            fadeInterval = setInterval(() => {
-              if (currentStep < fadeInSteps && audio) {
-                audio.volume = Math.min(fadeInIncrement * currentStep, targetVolume);
-                currentStep++;
-              } else {
-                clearInterval(fadeInterval);
-              }
-            }, fadeInInterval);
-          }
-        }, 200);
-
-        // Fade out and stop sound when popup closes
-        popup.on('close', () => {
-          if (audio) {
-            clearInterval(fadeInterval);
-
-            // Fade out over 3 seconds
-            const fadeOutDuration = 3000;
-            const fadeOutSteps = 60;
-            const startVolume = audio.volume;
-            const fadeOutDecrement = startVolume / fadeOutSteps;
-            const fadeOutInterval = fadeOutDuration / fadeOutSteps;
-
-            let currentStep = 0;
-            const fadeOut = setInterval(() => {
-              if (currentStep < fadeOutSteps && audio) {
-                audio.volume = Math.max(startVolume - (fadeOutDecrement * currentStep), 0);
-                currentStep++;
-              } else {
-                clearInterval(fadeOut);
-                if (audio) {
-                  audio.pause();
-                  audio.currentTime = 0;
-                }
-              }
-            }, fadeOutInterval);
-          }
+      setTimeout(() => {
+        activeViewer = new Viewer({
+          container,
+          panorama: image_url,
+          navbar: ['autorotate', 'fullscreen'],
+          fisheye: true,
+          defaultZoomLvl: 0,
+          plugins: [
+            AutorotatePlugin.withConfig({
+              autostartDelay: 800,
+              autorotateSpeed: '2rpm',
+              autostartOnIdle: false
+            })
+          ]
         });
+        activeViewer.getPlugin(AutorotatePlugin).start();
+      }, 60);
+
+      // Audio
+      stopAudio();
+      if (sound_url) {
+        activeAudio = new Audio(sound_url);
+        activeAudio.loop = true;
+        activeAudio.volume = 0;
+        activeAudio.play().catch(() => {});
+        fadeVolume(activeAudio, 0, 0.5, 3000);
+      }
+    }
+
+    function closePlotModal() {
+      stopAudio();
+      document.getElementById('plot-modal').classList.remove('open');
+      document.body.style.overflow = '';
+      if (activeViewer) { try { activeViewer.destroy(); } catch(e) {} activeViewer = null; }
+      document.getElementById('viewer-container').innerHTML = '';
+    }
+
+    function stopAudio() {
+      if (activeFadeId) { clearInterval(activeFadeId); activeFadeId = null; }
+      if (activeAudio) {
+        const a = activeAudio; activeAudio = null;
+        fadeVolume(a, a.volume, 0, 1800, () => { a.pause(); a.currentTime = 0; });
+      }
+    }
+
+    function fadeVolume(audio, from, to, duration, onDone) {
+      const steps = 50, intervalMs = duration / steps, delta = (to - from) / steps;
+      let step = 0;
+      const id = setInterval(() => {
+        step++;
+        audio.volume = Math.max(0, Math.min(1, from + delta * step));
+        if (step >= steps) { clearInterval(id); if (onDone) onDone(); }
+      }, intervalMs);
+      if (to > from) activeFadeId = id;
+    }
+
+    /* Close ── */
+    document.getElementById('modal-close').addEventListener('click', closePlotModal);
+    document.getElementById('lidar-close').addEventListener('click', closePlotModal);
+
+    document.getElementById('scroll-hint').addEventListener('click', () => {
+      const scroller = document.getElementById('modal-scroll');
+      scroller.scrollTo({ top: scroller.clientHeight, behavior: 'smooth' });
+    });
+
+    document.getElementById('back-to-360').addEventListener('click', () => {
+      document.getElementById('modal-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if (document.getElementById('lightbox').classList.contains('open')) closeLightbox();
+        else if (document.getElementById('plot-modal').classList.contains('open')) closePlotModal();
+      }
+    });
+
+    // Swipe-down to close (only when on page 1, scroll == 0)
+    let touchStartY = 0;
+    const modalEl = document.getElementById('plot-modal');
+    modalEl.addEventListener('touchstart', e => {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    modalEl.addEventListener('touchend', e => {
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      const atTop = document.getElementById('modal-scroll').scrollTop < 10;
+      if (dy > 85 && atTop) closePlotModal();
+    }, { passive: true });
+
+    /* ── Lightbox ── */
+    function openLightbox(src, caption) {
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('lightbox-caption').textContent = caption || '';
+      document.getElementById('lightbox').classList.add('open');
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+    }
+    document.getElementById('lightbox').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+
+    document.getElementById('lidar-sideview').addEventListener('click', () => {
+      openLightbox(document.getElementById('lidar-sideview-img').src, 'LiDAR — Seitenansicht');
+    });
+    document.getElementById('lidar-topview').addEventListener('click', () => {
+      openLightbox(document.getElementById('lidar-topview-img').src, 'LiDAR — Draufsicht');
+    });
+    ['lidar-sideview','lidar-topview'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') e.target.click();
       });
-
-
     });
   </script>
 </body>
-
 </html>
