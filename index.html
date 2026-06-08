@@ -57,7 +57,7 @@
     }
 
     #logo-wrap img {
-      height: clamp(28px, 5vw, 52px);
+      height: clamp(40px, 5vw, 60px);
       width: auto;
       opacity: .92;
     }
@@ -233,6 +233,16 @@
       box-shadow: 0 2px 12px rgba(0, 0, 0, .15);
     }
 
+    #mobile-legend-btn.active {
+      background: #2e3236;
+      color: white;
+      border-color: #2e3236;
+    }
+
+    #mobile-legend-btn.active svg {
+      color: white;
+    }
+
     @media (max-width: 600px) {
       #mobile-legend-btn {
         display: flex;
@@ -252,10 +262,13 @@
       transform: translateY(100%);
       transition: transform 0.3s cubic-bezier(.4, 0, .2, 1);
       box-shadow: 0 -4px 24px rgba(0, 0, 0, .12);
+      pointer-events: none;
+      /* default */
     }
 
     #mobile-legend-sheet.open {
       transform: translateY(0);
+      pointer-events: auto;
     }
 
     @media (max-width: 600px) {
@@ -930,7 +943,9 @@
 
     function closeMobileSheet() {
       document.getElementById('mobile-legend-sheet').classList.remove('open');
-      document.getElementById('mobile-legend-overlay').style.display = 'none';
+      const overlay = document.getElementById('mobile-legend-overlay');
+      overlay.style.display = 'none';
+      overlay.style.pointerEvents = 'none'; // belt-and-suspenders
     }
   </script>
 
@@ -944,9 +959,21 @@
       zoom: 6.5, center: [9, 53],
       style: 'styles/bm_web_gry_naturwald.json',
       maxZoom: 16, maxPitch: 0,
-      maxBounds: [[2.0, 47.0], [18.5, 55.5]]
+      maxBounds: [[2.0, 47.0], [18.5, 55.5]],
+      attributionControl: false
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+
+    if (window.innerWidth > 768) {
+      map.addControl(
+        new maplibregl.AttributionControl({ compact: true }),
+        'bottom-right'
+      );
+      map.addControl(
+        new maplibregl.NavigationControl({ showCompass: false }),
+        'bottom-right'
+      );
+    }
+    //   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.dragRotate.disable();
     map.keyboard.disable();
     map.touchZoomRotate.disableRotation();
@@ -1043,14 +1070,24 @@
     });
 
     document.getElementById('mobile-legend-btn').addEventListener('click', () => {
-      if (!disturbancesOn) {
-        disturbancesOn = true;
-        Object.keys(YEARS).forEach(year => {
-          map.setLayoutProperty('disturbances-' + year, 'visibility', yearActive[year] ? 'visible' : 'none');
-        });
+      disturbancesOn = !disturbancesOn;
+
+      // Toggle active class on button (visual feedback)
+      document.getElementById('mobile-legend-btn').classList.toggle('active', disturbancesOn);
+
+      // Show/hide layers
+      Object.keys(YEARS).forEach(year => {
+        map.setLayoutProperty('disturbances-' + year, 'visibility',
+          (disturbancesOn && yearActive[year]) ? 'visible' : 'none');
+      });
+
+      // Open/close sheet
+      if (disturbancesOn) {
+        document.getElementById('mobile-legend-sheet').classList.add('open');
+        document.getElementById('mobile-legend-overlay').style.display = 'block';
+      } else {
+        closeMobileSheet();
       }
-      document.getElementById('mobile-legend-sheet').classList.add('open');
-      document.getElementById('mobile-legend-overlay').style.display = 'block';
     });
 
     /* ── Plot markers ── */
@@ -1090,7 +1127,7 @@
     let activeAudio = null, activeFadeId = null, activeViewer = null;
 
     function openPlotModal(props) {
-      const { plot_id, plot_type, image_url, sound_url } = props;
+      const { plot_id, plot_type, image_url_local, sound_url } = props;
 
       // Reset to first page (360)
       document.getElementById('modal-scroll').scrollTop = 0;
@@ -1119,7 +1156,7 @@
       setTimeout(() => {
         activeViewer = new Viewer({
           container,
-          panorama: image_url,
+          panorama: image_url_local,
           navbar: ['autorotate', 'fullscreen'],
           fisheye: true,
           defaultZoomLvl: 0,
