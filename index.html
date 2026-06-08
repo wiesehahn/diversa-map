@@ -1140,7 +1140,7 @@
     let activeAudio = null, activeFadeId = null, activeViewer = null;
 
     function openPlotModal(props) {
-      const { plot_id, plot_type, image_url_local, sound_url } = props;
+      const { plot_id, plot_type, image_url, sound_url } = props;
 
       // Reset to first page (360)
       document.getElementById('modal-scroll').scrollTop = 0;
@@ -1169,7 +1169,7 @@
       setTimeout(() => {
         activeViewer = new Viewer({
           container,
-          panorama: image_url_local,
+          panorama: image_url,
           navbar: ['autorotate', 'fullscreen'],
           fisheye: true,
           defaultZoomLvl: 0,
