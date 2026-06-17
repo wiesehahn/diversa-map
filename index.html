@@ -887,7 +887,7 @@
             <!-- ALS Sideview — left col, top row -->
             <div class="lidar-card" id="lidar-sideview-als" tabindex="0" role="button"
               aria-label="ALS Seitenansicht vergrößern">
-              <img id="lidar-als-img" src="" alt="ALS Seitenansicht" loading="lazy" />
+              <img id="lidar-sideview-als-img" src="" alt="ALS sideview" loading="lazy" />
               <div class="lidar-source-badge">ALS</div>
               <div class="lidar-card-label">Seitenansicht</div>
               <div class="lidar-card-zoom">⤢ Vergrößern</div>
@@ -896,15 +896,17 @@
             <!-- MLS Sideview — left col, bottom row -->
             <div class="lidar-card" id="lidar-sideview-mls" tabindex="0" role="button"
               aria-label="MLS Seitenansicht vergrößern">
-              <img id="lidar-mls-img" src="" alt="MLS Seitenansicht" loading="lazy" />
+              <img id="lidar-sideview-mls-img" src="" alt="MLS sideview" loading="lazy" />
               <div class="lidar-source-badge">MLS</div>
               <div class="lidar-card-label">Seitenansicht</div>
               <div class="lidar-card-zoom">⤢ Vergrößern</div>
             </div>
 
             <!-- Topview — right col, spans both rows -->
-            <div class="lidar-card" id="lidar-topview" tabindex="0" role="button" aria-label="Draufsicht vergrößern">
-              <img id="lidar-topview-img" src="" alt="LiDAR Draufsicht" loading="lazy" />
+            <div class="lidar-card" id="lidar-topview" tabindex="0" role="button" 
+              aria-label="Draufsicht vergrößern">
+              <img id="lidar-topview-als-img" src="" alt="ALS topview" loading="lazy" />
+              <div class="lidar-source-badge">ALS</div>
               <div class="lidar-card-label">Draufsicht</div>
               <div class="lidar-card-zoom">⤢ Vergrößern</div>
             </div>
@@ -1140,7 +1142,7 @@
     let activeAudio = null, activeFadeId = null, activeViewer = null;
 
     function openPlotModal(props) {
-      const { plot_id, plot_type, image_url, sound_url } = props;
+      const { plot_id, plot_type, image_url, sound_url, date_als, date_mls } = props;
 
       // Reset to first page (360)
       document.getElementById('modal-scroll').scrollTop = 0;
@@ -1153,9 +1155,13 @@
         ? 'rgba(120,210,255,.9)' : 'rgba(100,240,160,.9)';
 
       // LiDAR images — ALS sideview, MLS sideview, topview
-      document.getElementById('lidar-als-img').src = `images/sideview/${plot_id}.webp`;
-      document.getElementById('lidar-mls-img').src = `images/sideview/mls/${plot_id}.webp`;
-      document.getElementById('lidar-topview-img').src = `images/topview/${plot_id}.webp`;
+      document.getElementById('lidar-sideview-als-img').src = `images/sideview/${plot_id}.webp`;
+      document.getElementById('lidar-sideview-mls-img').src = `images/sideview/mls/${plot_id}.webp`;
+      document.getElementById('lidar-topview-als-img').src = `images/topview/${plot_id}.webp`;
+
+      document.querySelector('#lidar-sideview-als .lidar-card-label').textContent = `Seitenansicht${date_als ? ` (${date_als})` : ''}`;
+      document.querySelector('#lidar-sideview-mls .lidar-card-label').textContent = `Seitenansicht${date_mls ? ` (${date_mls})` : ''}`;
+      document.querySelector('#lidar-topview .lidar-card-label').textContent = `Draufsicht${date_als ? ` (${date_als})` : ''}`;
 
       // Show
       document.getElementById('plot-modal').classList.add('open');
@@ -1363,13 +1369,13 @@ lbCanvas.addEventListener('touchend', e => {
 }, { passive: true });
 
     document.getElementById('lidar-sideview-als').addEventListener('click', () => {
-      openLightbox(document.getElementById('lidar-als-img').src, 'ALS — Seitenansicht');
+      openLightbox(document.getElementById('lidar-sideview-als-img').src, 'ALS — Seitenansicht');
     });
     document.getElementById('lidar-sideview-mls').addEventListener('click', () => {
-      openLightbox(document.getElementById('lidar-mls-img').src, 'MLS — Seitenansicht');
+      openLightbox(document.getElementById('lidar-sideview-mls-img').src, 'MLS — Seitenansicht');
     });
     document.getElementById('lidar-topview').addEventListener('click', () => {
-      openLightbox(document.getElementById('lidar-topview-img').src, 'LiDAR — Draufsicht');
+      openLightbox(document.getElementById('lidar-topview-als-img').src, 'LiDAR — Draufsicht');
     });
     ['lidar-sideview-als', 'lidar-sideview-mls', 'lidar-topview'].forEach(id => {
       document.getElementById(id).addEventListener('keydown', e => {
