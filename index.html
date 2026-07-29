@@ -4,7 +4,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#2e3236" />
   <title>DIVERSA map</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.json" />
+
+  <link rel="preconnect" href="https://unpkg.com/" crossorigin />
+  <link rel="dns-prefetch" href="https://unpkg.com/" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net/" crossorigin />
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net/" />
+  <link rel="preconnect" href="https://fonts.googleapis.com/" crossorigin />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com/" />
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com/" />
+
   <link href="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.14.0/index.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
@@ -91,6 +104,14 @@
       width: 36px;
       height: 20px;
       flex-shrink: 0;
+    }
+
+    /* invisible hit-area extension so the switch has a ~44px+ tappable target
+       without changing its visual size */
+    .toggle-switch::before {
+      content: '';
+      position: absolute;
+      inset: -12px;
     }
 
     .toggle-switch input {
@@ -222,6 +243,7 @@
       z-index: 10;
       align-items: center;
       gap: 7px;
+      min-height: 44px;
       padding: 7px 12px;
       background: white;
       border: 1px solid var(--c-border);
@@ -403,8 +425,8 @@
       padding: 0;
       flex-shrink: 0;
       border-radius: 50%;
-      width: 34px;
-      height: 34px;
+      width: 44px;
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -675,6 +697,29 @@
       opacity: 1;
     }
 
+    /* ── Broken/missing image fallback ── */
+    .lidar-card.img-error {
+      cursor: default;
+    }
+
+    .lidar-card.img-error img {
+      visibility: hidden;
+    }
+
+    .lidar-card.img-error::after {
+      content: 'Bild nicht verfügbar';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--c-muted);
+      background: #e8e8e6;
+    }
+
     /* ── Source badge (ALS / MLS) ── */
     .lidar-source-badge {
       position: absolute;
@@ -743,8 +788,8 @@
       cursor: pointer;
       color: #333;
       border-radius: 50%;
-      width: 34px;
-      height: 34px;
+      width: 44px;
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -792,6 +837,30 @@
     .maplibregl-popup-tip {
       display: none !important;
     }
+
+    /* ── Map error toast ── */
+    #map-toast {
+      position: absolute;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      z-index: 20;
+      background: rgba(0, 0, 0, .78);
+      color: #fff;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      padding: 9px 16px;
+      border-radius: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--trans), transform var(--trans);
+      white-space: nowrap;
+    }
+
+    #map-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 
@@ -832,6 +901,7 @@
 
   <!-- Map -->
   <div id="map"></div>
+  <div id="map-toast" role="status" aria-live="polite"></div>
 
   <!-- Imagery toggle -->
   <div class="panel" id="control">
@@ -998,6 +1068,20 @@
     map.keyboard.disable();
     map.touchZoomRotate.disableRotation();
 
+    /* ── Map error feedback ── */
+    let mapToastTimer = null;
+    function showMapToast(msg) {
+      const el = document.getElementById('map-toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(mapToastTimer);
+      mapToastTimer = setTimeout(() => el.classList.remove('show'), 4000);
+    }
+    map.on('error', e => {
+      console.error('Map error:', e.error || e);
+      showMapToast('Kartendaten konnten nicht geladen werden');
+    });
+
     /* ── WMS imagery ── */
     map.on('load', () => {
       map.addSource('wms-sentinel2', {
@@ -1146,6 +1230,15 @@
     /* ── Modal ── */
     let activeAudio = null, activeFadeId = null, activeViewer = null;
 
+    function setLidarImage(imgId, cardId, src) {
+      const img = document.getElementById(imgId);
+      const card = document.getElementById(cardId);
+      card.classList.remove('img-error');
+      img.onerror = () => card.classList.add('img-error');
+      img.onload = () => card.classList.remove('img-error');
+      img.src = src;
+    }
+
     function openPlotModal(props) {
       const { plot_id, plot_type, image_url, sound_url, date_als, date_mls } = props;
 
@@ -1160,9 +1253,9 @@
         ? 'rgba(120,210,255,.9)' : 'rgba(100,240,160,.9)';
 
       // LiDAR images — ALS sideview, MLS sideview, topview
-      document.getElementById('lidar-sideview-als-img').src = `images/sideview/${plot_id}.webp`;
-      document.getElementById('lidar-sideview-mls-img').src = `images/sideview/mls/${plot_id}.webp`;
-      document.getElementById('lidar-topview-als-img').src = `images/topview/${plot_id}.webp`;
+      setLidarImage('lidar-sideview-als-img', 'lidar-sideview-als', `images/sideview/${plot_id}.webp`);
+      setLidarImage('lidar-sideview-mls-img', 'lidar-sideview-mls', `images/sideview/mls/${plot_id}.webp`);
+      setLidarImage('lidar-topview-als-img', 'lidar-topview', `images/topview/${plot_id}.webp`);
 
       document.querySelector('#lidar-sideview-als .lidar-card-label').textContent = `Seitenansicht${date_als ? ` (${date_als})` : ''}`;
       document.querySelector('#lidar-sideview-mls .lidar-card-label').textContent = `Seitenansicht${date_mls ? ` (${date_mls})` : ''}`;
@@ -1254,17 +1347,25 @@
     });
 
     // Swipe gestures
-    let touchStartY = 0;
+    let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
     const modalEl = document.getElementById('plot-modal');
+    const SWIPE_MAX_DURATION_MS = 800;
 
     modalEl.addEventListener('touchstart', e => {
+      touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
     }, { passive: true });
 
     modalEl.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
+      const duration = Date.now() - touchStartTime;
       const threshold = window.innerHeight * 0.6;
       const atTop = document.getElementById('modal-scroll').scrollTop < 10;
+
+      // ignore drags that are mostly horizontal or too slow to be an intentional swipe
+      if (Math.abs(dy) <= Math.abs(dx) || duration > SWIPE_MAX_DURATION_MS) return;
 
       if (atTop && dy > threshold) {
         // swipe down → close
@@ -1284,6 +1385,16 @@
     function lbApplyTransform() {
       document.getElementById('lightbox-img').style.transform =
         `translate(${lbX}px, ${lbY}px) scale(${lbScale})`;
+    }
+
+    // batches transform writes during touch pan/pinch to at most once per frame
+    let lbRafId = null;
+    function lbScheduleApply() {
+      if (lbRafId) return;
+      lbRafId = requestAnimationFrame(() => {
+        lbRafId = null;
+        lbApplyTransform();
+      });
     }
 
     function lbReset() {
@@ -1367,7 +1478,7 @@
         if (lbPinchDist) {
           lbScale = Math.min(8, Math.max(1, lbScale * (dist / lbPinchDist)));
           if (lbScale === 1) { lbX = 0; lbY = 0; }
-          lbApplyTransform();
+          lbScheduleApply();
         }
         lbPinchDist = dist;
       } else if (e.touches.length === 1 && lbScale > 1) {
@@ -1375,7 +1486,7 @@
         lbY += e.touches[0].clientY - lbLastY;
         lbLastX = e.touches[0].clientX;
         lbLastY = e.touches[0].clientY;
-        lbApplyTransform();
+        lbScheduleApply();
       }
     }, { passive: false });
 
@@ -1383,13 +1494,16 @@
       if (e.touches.length < 2) lbPinchDist = null;
     }, { passive: true });
 
-    document.getElementById('lidar-sideview-als').addEventListener('click', () => {
+    document.getElementById('lidar-sideview-als').addEventListener('click', function () {
+      if (this.classList.contains('img-error')) return;
       openLightbox(document.getElementById('lidar-sideview-als-img').src, 'ALS — Seitenansicht');
     });
-    document.getElementById('lidar-sideview-mls').addEventListener('click', () => {
+    document.getElementById('lidar-sideview-mls').addEventListener('click', function () {
+      if (this.classList.contains('img-error')) return;
       openLightbox(document.getElementById('lidar-sideview-mls-img').src, 'MLS — Seitenansicht');
     });
-    document.getElementById('lidar-topview').addEventListener('click', () => {
+    document.getElementById('lidar-topview').addEventListener('click', function () {
+      if (this.classList.contains('img-error')) return;
       openLightbox(document.getElementById('lidar-topview-als-img').src, 'LiDAR — Draufsicht');
     });
     ['lidar-sideview-als', 'lidar-sideview-mls', 'lidar-topview'].forEach(id => {
