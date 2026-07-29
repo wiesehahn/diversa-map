@@ -1,0 +1,17 @@
+{
+  "name": "DIVERSA map",
+  "short_name": "DIVERSA",
+  "description": "Interaktive Karte der DIVERSA-Versuchsflächen mit LiDAR-Bestandsstruktur und 360°-Ansichten",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f0f0f0",
+  "theme_color": "#2e3236",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
