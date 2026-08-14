@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#2e3236" />
+  <title>DIVERSA — LiDAR</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="../manifest.json" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com/" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin />
+
+  <link href="../shared.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+
+  <header class="site-nav">
+    <a class="site-nav-brand" href="../">
+      <img src="../favicon.svg" alt="" />
+      DIVERSA
+    </a>
+    <nav class="site-nav-links">
+      <a href="../map/">Karte</a>
+      <a href="./" class="active">LiDAR</a>
+    </nav>
+  </header>
+
+  <main class="article">
+    <div class="article-kicker">Methode</div>
+    <h1 class="article-title">Wie wir den Wald vermessen</h1>
+    <p class="article-lede">
+      Mit LiDAR erfassen wir die dreidimensionale Struktur von Waldbeständen — aus der Luft und
+      vom Boden aus. Beide Verfahren zusammen ergeben ein detailliertes Bild davon, wie sich
+      bewirtschaftete und sich selbst überlassene Flächen strukturell unterscheiden.
+    </p>
+
+    <!-- TODO: replace placeholder copy once final project text is available -->
+    <div class="article-prose">
+      <p>
+        LiDAR (Light Detection and Ranging) misst mit Laserpulsen die Entfernung zu Millionen
+        Punkten in der Landschaft und erzeugt daraus eine dreidimensionale Punktwolke. Auf dieser
+        Karte kommen zwei Aufnahmeverfahren zum Einsatz, die sich in Perspektive und Detailgrad
+        ergänzen.
+      </p>
+    </div>
+
+    <div class="method-toggle" role="tablist" aria-label="LiDAR-Verfahren">
+      <button class="method-toggle-btn active" data-method="als" role="tab" aria-selected="true">
+        Airborne (ALS)
+      </button>
+      <button class="method-toggle-btn" data-method="mls" role="tab" aria-selected="false">
+        Mobile (MLS)
+      </button>
+    </div>
+
+    <div class="method-panel" data-method="als">
+      <p class="article-lede">
+        Flugzeug- oder drohnengestütztes Laserscanning erfasst ganze Waldbestände von oben — und
+        liefert damit den Überblick über Kronendach, Bestandshöhe und -struktur auf großer Fläche.
+      </p>
+      <!-- TODO: replace placeholder copy once final project text is available -->
+      <div class="article-prose">
+        <p>
+          Beim ALS wird ein Laserscanner an einem Flugzeug oder einer Drohne montiert und
+          überfliegt die Fläche in parallelen Bahnen. Ein Teil der Laserpulse durchdringt Lücken
+          im Kronendach und erreicht den Boden, sodass sowohl die Vegetationsstruktur als auch das
+          Geländerelief rekonstruiert werden können.
+        </p>
+      </div>
+      <div class="article-figure-grid">
+        <figure>
+          <img src="../images/topview/NI-ND-10.webp" alt="Draufsicht eines Bestands aus ALS-Daten" loading="lazy" />
+          <figcaption>ALS — Draufsicht</figcaption>
+        </figure>
+        <figure>
+          <img src="../images/sideview/NI-ND-10.webp" alt="Seitenansicht eines Bestands aus ALS-Daten"
+            loading="lazy" />
+          <figcaption>ALS — Seitenansicht</figcaption>
+        </figure>
+      </div>
+      <p class="article-sample-note">Beispielfläche NI-ND-10.</p>
+
+      <div class="article-kicker article-section-kicker">Alle Flächen — Seitenansicht (ALS)</div>
+      <div class="article-gallery" id="als-gallery"></div>
+    </div>
+
+    <div class="method-panel" data-method="mls" hidden>
+      <p class="article-lede">
+        Bodengestütztes Laserscanning erfasst den Bestand von innen — mit deutlich höherer
+        Detailgenauigkeit an Stämmen, Totholz und Unterwuchs als aus der Luft möglich ist.
+      </p>
+      <!-- TODO: replace placeholder copy once final project text is available -->
+      <div class="article-prose">
+        <p>
+          Beim MLS wird ein Laserscanner auf einem Rucksack oder Fahrzeug durch den Bestand
+          bewegt. Da die Aufnahme direkt zwischen den Bäumen stattfindet, entstehen sehr dichte
+          Punktwolken von Stammverläufen, Kronenansätzen und liegendem Totholz — Details, die aus
+          der Vogelperspektive kaum sichtbar sind.
+        </p>
+      </div>
+      <div class="article-figure-grid article-figure-grid-single">
+        <figure>
+          <img src="../images/sideview/mls/NI-ND-10.webp" alt="Seitenansicht eines Bestands aus MLS-Daten"
+            loading="lazy" />
+          <figcaption>MLS — Seitenansicht</figcaption>
+        </figure>
+      </div>
+      <p class="article-sample-note">Beispielfläche NI-ND-10.</p>
+
+      <div class="article-kicker article-section-kicker">Alle Flächen — Seitenansicht (MLS)</div>
+      <div class="article-gallery" id="mls-gallery"></div>
+    </div>
+
+    <div class="article-links">
+      <a href="../map/">Zur Karte →</a>
+    </div>
+  </main>
+
+  <script>
+    // ALS/MLS switch — swaps content in place, no navigation (kept in sync
+    // with the URL hash so #als / #mls stay directly linkable)
+    const toggleButtons = document.querySelectorAll('.method-toggle-btn');
+    const panels = document.querySelectorAll('.method-panel');
+
+    function showMethod(method) {
+      toggleButtons.forEach(btn => {
+        const active = btn.dataset.method === method;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active);
+      });
+      panels.forEach(panel => {
+        panel.hidden = panel.dataset.method !== method;
+      });
+    }
+
+    toggleButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        showMethod(btn.dataset.method);
+        history.replaceState(null, '', '#' + btn.dataset.method);
+      });
+    });
+
+    if (location.hash === '#mls') showMethod('mls');
+
+    // Both galleries share a single fetch of the plot list
+    fetch('../data/plots_diversa.geojson')
+      .then(res => res.json())
+      .then(data => {
+        const alsGallery = document.getElementById('als-gallery');
+        const mlsGallery = document.getElementById('mls-gallery');
+        data.features.forEach(({ properties }) => {
+          const plotId = properties.plot_id;
+
+          const alsFigure = document.createElement('figure');
+          alsFigure.innerHTML = `
+            <img src="../images/sideview/${plotId}.webp" alt="Seitenansicht der Fläche ${plotId} (ALS)" loading="lazy" />
+            <figcaption>${plotId}</figcaption>
+          `;
+          alsFigure.querySelector('img').onerror = () => alsFigure.remove();
+          alsGallery.appendChild(alsFigure);
+
+          const mlsFigure = document.createElement('figure');
+          mlsFigure.innerHTML = `
+            <img src="../images/sideview/mls/${plotId}.webp" alt="Seitenansicht der Fläche ${plotId} (MLS)" loading="lazy" />
+            <figcaption>${plotId}</figcaption>
+          `;
+          mlsFigure.querySelector('img').onerror = () => mlsFigure.remove();
+          mlsGallery.appendChild(mlsFigure);
+        });
+      })
+      .catch(err => console.error('Konnte Flächenliste nicht laden:', err));
+  </script>
+</body>
+
+</html>
