@@ -19,7 +19,7 @@
   <link rel="dns-prefetch" href="https://fonts.gstatic.com/" />
 
   <link href="../shared.css" rel="stylesheet" />
-  <link href="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@6.7.0/dist/maplibre-gl.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.14.0/index.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
 
@@ -1296,11 +1296,11 @@
   </div>
 
   <!-- ── Scripts ── -->
-  <script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
   <script type="importmap">
     {
       "imports": {
+        "maplibre-gl": "https://unpkg.com/maplibre-gl@6.7.0/dist/maplibre-gl.mjs",
         "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
         "@photo-sphere-viewer/core": "https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.14.0/index.module.js",
         "@photo-sphere-viewer/autorotate-plugin": "https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/autorotate-plugin@5.14.0/index.module.js"
@@ -1309,9 +1309,6 @@
   </script>
 
   <script>
-    const protocol = new pmtiles.Protocol({ metadata: true });
-    maplibregl.addProtocol("pmtiles", protocol.tile);
-
     function closeMobileSheet() {
       document.getElementById('mobile-legend-sheet').classList.remove('open');
       const overlay = document.getElementById('mobile-legend-overlay');
@@ -1321,8 +1318,12 @@
   </script>
 
   <script type="module">
+    import * as maplibregl from 'maplibre-gl';
     import { Viewer } from '@photo-sphere-viewer/core';
     import { AutorotatePlugin } from '@photo-sphere-viewer/autorotate-plugin';
+
+    const protocol = new pmtiles.Protocol({ metadata: true });
+    maplibregl.addProtocol("pmtiles", protocol.tile);
 
     /* ── Map ──
        View position (center/zoom) is remembered across page loads so
@@ -1518,6 +1519,7 @@
       map.setMaxPitch(on ? 70 : 0);
       map.dragRotate[on ? 'enable' : 'disable']();
       map.touchPitch[on ? 'enable' : 'disable']();
+      if (!on) map.setBearing(0);
     });
 
     /* ── Disturbance layers ── */
