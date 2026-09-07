@@ -1297,7 +1297,7 @@
 
   <!-- ── Scripts ── -->
   <script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
-  <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+  <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
   <script type="importmap">
     {
       "imports": {
@@ -1356,6 +1356,10 @@
     if (window.innerWidth > 768) {
       map.addControl(
         new maplibregl.AttributionControl({ compact: true }),
+        'bottom-right'
+      );
+      map.addControl(
+        new maplibregl.TerrainControl({ source: 'terrain-dem' }),
         'bottom-right'
       );
       map.addControl(
@@ -1500,6 +1504,20 @@
         map.setLayoutProperty('wms-sentinel2', 'visibility', v);
         map.setLayoutProperty('wms-ortho-ni', 'visibility', v);
       });
+    });
+
+    map.on('load', () => {
+      map.addSource('terrain-dem', {
+        type: 'raster-dem',
+        url: 'https://tiles.mapterhorn.com/tilejson.json'
+      });
+    });
+
+    map.on('terrain', () => {
+      const on = !!map.getTerrain();
+      map.setMaxPitch(on ? 70 : 0);
+      map.dragRotate[on ? 'enable' : 'disable']();
+      map.touchPitch[on ? 'enable' : 'disable']();
     });
 
     /* ── Disturbance layers ── */
