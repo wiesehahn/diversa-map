@@ -171,20 +171,6 @@
       inset: 0;
     }
 
-    /* ── Logo ── */
-    #logo-wrap {
-      position: absolute;
-      top: 60px;
-      right: 10px;
-      z-index: 10;
-    }
-
-    #logo-wrap img {
-      height: clamp(40px, 5vw, 60px);
-      width: auto;
-      opacity: .92;
-    }
-
     /* ── Shared panel ── */
     .panel {
       position: absolute;
@@ -198,82 +184,13 @@
       color: var(--c-text);
     }
 
-    /* ── Unified bottom-left control panel (Luftbild + Waldschäden) ── */
+    /* ── Unified bottom-left control panel (Waldschäden) ── */
     #control {
       bottom: 28px;
       left: 10px;
       min-width: 160px;
       padding: 0;
       overflow: hidden;
-    }
-
-    .control-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-    }
-
-    .control-divider {
-      height: 1px;
-      background: var(--c-border);
-    }
-
-    .toggle-switch {
-      position: relative;
-      display: inline-block;
-      width: 36px;
-      height: 20px;
-      flex-shrink: 0;
-    }
-
-    /* invisible hit-area extension so the switch has a ~44px+ tappable target
-       without changing its visual size */
-    .toggle-switch::before {
-      content: '';
-      position: absolute;
-      inset: -12px;
-    }
-
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      inset: 0;
-      cursor: pointer;
-      background: #ccc;
-      border-radius: 20px;
-      transition: background var(--trans);
-    }
-
-    .slider::before {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      left: 3px;
-      bottom: 3px;
-      background: white;
-      border-radius: 50%;
-      transition: transform var(--trans);
-    }
-
-    input:checked+.slider {
-      background: #2e3236;
-    }
-
-    input:checked+.slider::before {
-      transform: translateX(16px);
-    }
-
-    .layer-label {
-      cursor: pointer;
-      color: var(--c-text);
-      font-size: 13px;
     }
 
     /* ── Disturbance legend (desktop) — lives inside #control ── */
@@ -965,6 +882,15 @@
       display: none !important;
     }
 
+    /* ── Imagery (Luftbild) control — matches the terrain/zoom buttons ── */
+    .maplibregl-ctrl-imagery .maplibregl-ctrl-icon {
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='%23333' viewBox='0 0 24 24'%3E%3Cpath d='M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3C/svg%3E");
+    }
+
+    .maplibregl-ctrl-imagery-enabled .maplibregl-ctrl-icon {
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='%2333b5e5' viewBox='0 0 24 24'%3E%3Cpath d='M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3C/svg%3E");
+    }
+
     /* ── Map error toast ── */
     #map-toast {
       position: absolute;
@@ -990,9 +916,11 @@
     }
 
     /* ────────────────────────────────────────────────────────────
-       In-page LiDAR panel — opens in front of the still-running map
-       and simply hides again, so the map is never touched/reloaded.
+       In-page info panels (DIVERSA / LiDAR) — open in front of the
+       still-running map and simply hide again, so the map is never
+       touched/reloaded.
     ──────────────────────────────────────────────────────────── */
+    #diversa-panel,
     #lidar-panel {
       display: none;
       position: fixed;
@@ -1002,8 +930,19 @@
       overflow-y: auto;
     }
 
+    #diversa-panel.open,
     #lidar-panel.open {
       display: block;
+    }
+
+    /* ── Partner logo inside the DIVERSA panel ── */
+    .article-partner-logo {
+      margin: 0 0 28px;
+    }
+
+    .article-partner-logo img {
+      height: clamp(64px, 8vw, 96px);
+      width: auto;
     }
   </style>
 </head>
@@ -1012,7 +951,7 @@
 
   <!-- ── Starting page / entry gate ── -->
   <div id="start-screen" role="banner">
-    <span class="start-byline">By <a href="https://github.com/wiesehahn" target="_blank"
+    <span class="start-byline"><a href="https://github.com/wiesehahn" target="_blank"
         rel="noopener noreferrer">Jens Wiesehahn</a></span>
     <div class="start-inner">
       <div class="start-brand">
@@ -1023,9 +962,8 @@
       <p class="start-subtext">Managementeinfluss auf Waldstruktur — eine interaktive Karte</p>
       <!-- TODO: replace placeholder copy once final project text is available -->
       <p class="start-prose">
-        Diese Karte zeigt Versuchsflächen, an denen wir untersuchen, wie sich bewirtschaftete und
-        sich selbst überlassene Waldflächen strukturell unterscheiden — auf Basis von LiDAR-Daten,
-        360°-Ansichten vor Ort und Fernerkundung.
+        Diese Karte zeigt Versuchsflächen, an denen wir untersuchen, wie sich bewirtschaftete Wälder und
+        Naturwaldflächen strukturell und hinsichtlich der Artenvielfalt unterscheiden - auf Basis von terrestrischen Erhebungen und Fernerkundungsdaten.
       </p>
       <button id="start-enter-btn" disabled>Lädt…</button>
     </div>
@@ -1033,22 +971,12 @@
 
   <!-- Site nav -->
   <header class="site-nav">
-    <a class="site-nav-brand" href="../">
-      <img src="../favicon.svg" alt="" />
-      DIVERSA
-    </a>
     <nav class="site-nav-links">
+      <button type="button" id="nav-diversa">DIVERSA</button>
       <button type="button" id="nav-karte" class="active">Karte</button>
       <button type="button" id="nav-lidar">LiDAR</button>
     </nav>
   </header>
-
-  <!-- Logo -->
-  <div id="logo-wrap">
-    <a href="https://zkfn.de/diversa/" target="_blank" rel="noopener noreferrer">
-      <img src="../images/ZKfN_Logo_DIVERSA_RGB.webp" alt="DIVERSA Logo" />
-    </a>
-  </div>
 
   <!-- Mobile legend bottom sheet -->
   <div id="mobile-legend-sheet" role="dialog">
@@ -1063,18 +991,8 @@
   <div id="map"></div>
   <div id="map-toast" role="status" aria-live="polite"></div>
 
-  <!-- Unified bottom-left control panel: Luftbild + Waldschäden -->
+  <!-- Unified bottom-left control panel: Waldschäden -->
   <div class="panel" id="control">
-    <div class="control-row">
-      <label class="toggle-switch" aria-label="Luftbild umschalten">
-        <input type="checkbox" id="toggle-wms" />
-        <span class="slider"></span>
-      </label>
-      <span class="layer-label">Luftbild</span>
-    </div>
-
-    <div class="control-divider"></div>
-
     <!-- Disturbance legend (desktop) -->
     <nav id="disturbanceLegend">
       <h3 id="disturbanceLegend-title">Waldschäden</h3>
@@ -1093,15 +1011,66 @@
     </button>
   </div>
 
+  <!-- ── In-page DIVERSA panel ── -->
+  <div id="diversa-panel" aria-hidden="true">
+    <main class="article">
+      <div class="article-kicker">Projekt</div>
+      <h1 class="article-title">Über DIVERSA</h1>
+      <p class="article-lede">
+        DIVERSA untersucht Waldschäden durch den Klimawandel in Niedersachsen — mit dem Ziel,
+        die natürliche Widerstandsfähigkeit unserer Wälder gegenüber klimabedingten Störungen zu
+        verstehen und zu stärken.
+      </p>
+
+      <!-- Condensed from https://zkfn.de/diversa/ — refine wording once official copy is finalized -->
+      <div class="article-prose">
+        <p>
+          Das Projekt verfolgt drei Ziele: Zum einen sollen belastbare Daten zur
+          Störungswahrscheinlichkeit entstehen — in Abhängigkeit von Ursachen wie Sturm,
+          Trockenheit, Schädlingen oder Feuer sowie von Standort, Bewirtschaftungsgeschichte und
+          Waldvielfalt, erhoben über Fernerkundung, Monitoring und Inventurdaten. Zum anderen wird
+          untersucht, wie Biodiversität und Ökosystemleistungen auf Störungen reagieren — durch
+          Artenerhebungen in bewirtschafteten und unbewirtschafteten Wäldern, ergänzt durch Daten
+          der Naturschutzbehörden und Citizen-Science-Plattformen. Schließlich fließen die
+          Perspektiven von Waldbesitzenden, Interessengruppen und der Öffentlichkeit ein, um eine
+          partizipative Entscheidungsfindung über die zukünftige Waldentwicklung zu ermöglichen.
+        </p>
+        <p>
+          Sprecher des Projekts ist Dr. Jonas Hagge, Koordinatorin Dr. Sandra Peters (beide
+          Nordwestdeutsche Forstliche Versuchsanstalt). Zu den wissenschaftlichen Partnern zählen
+          die Universitäten Göttingen, Lüneburg, München und Utrecht, zu den Praxispartnern die
+          Niedersächsischen Landesforsten sowie Wasser- und Naturschutzbehörden. Gefördert wird
+          DIVERSA im Rahmen von zukunft.niedersachsen, einem Programm des Niedersächsischen
+          Ministeriums für Wissenschaft und Kultur und der VolkswagenStiftung.
+        </p>
+        <p>
+          Diese Karte macht einen Teil der Versuchsflächen und ihrer Daten öffentlich zugänglich —
+          von 360°-Ansichten vor Ort bis zu den LiDAR-Punktwolken, die die dreidimensionale
+          Struktur der Bestände sichtbar machen.
+        </p>
+      </div>
+
+      <div class="article-partner-logo">
+        <a href="https://zkfn.de/diversa/" target="_blank" rel="noopener noreferrer">
+          <img src="../images/ZKfN_Logo_DIVERSA_RGB.webp" alt="DIVERSA Logo" />
+        </a>
+      </div>
+
+      <div class="article-links">
+        <button type="button" id="diversa-panel-close-link">Zur Karte →</button>
+      </div>
+    </main>
+  </div>
+
   <!-- ── In-page LiDAR panel ── -->
   <div id="lidar-panel" aria-hidden="true">
     <main class="article">
       <div class="article-kicker">Methode</div>
       <h1 class="article-title">Wie wir den Wald vermessen</h1>
       <p class="article-lede">
-        Mit LiDAR erfassen wir die dreidimensionale Struktur von Waldbeständen — aus der Luft und
+        Mit LiDAR erfassen wir die dreidimensionale Struktur von Waldbeständen - aus der Luft und
         vom Boden aus. Beide Verfahren zusammen ergeben ein detailliertes Bild davon, wie sich
-        bewirtschaftete und sich selbst überlassene Flächen strukturell unterscheiden.
+        bewirtschaftete Waldbestände und Naturwaldflächen strukturell unterscheiden.
       </p>
 
       <!-- TODO: replace placeholder copy once final project text is available -->
@@ -1354,21 +1323,73 @@
       } catch (e) { }
     });
 
+    /* ── Luftbild (WMS imagery) control ──
+       A minimal icon button matching MapLibre's own control styling,
+       sitting right above the terrain button. */
+    class ImageryToggleControl {
+      onAdd(mapInstance) {
+        this._map = mapInstance;
+        this._btn = document.createElement('button');
+        this._btn.type = 'button';
+        this._btn.className = 'maplibregl-ctrl-imagery';
+        this._btn.title = 'Luftbild anzeigen';
+        this._btn.setAttribute('aria-label', 'Luftbild anzeigen');
+        const icon = document.createElement('span');
+        icon.className = 'maplibregl-ctrl-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        this._btn.appendChild(icon);
+        this._btn.addEventListener('click', () => this._toggle());
+        this._container = document.createElement('div');
+        this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+        this._container.appendChild(this._btn);
+        return this._container;
+      }
+      onRemove() {
+        this._container.remove();
+        this._map = undefined;
+      }
+      _toggle() {
+        const on = !this._btn.classList.contains('maplibregl-ctrl-imagery-enabled');
+        this._btn.classList.toggle('maplibregl-ctrl-imagery-enabled', on);
+        this._btn.title = on ? 'Luftbild ausblenden' : 'Luftbild anzeigen';
+        const v = on ? 'visible' : 'none';
+        ['wms-sentinel2', 'wms-ortho-ni'].forEach(id => {
+          if (this._map.getLayer(id)) this._map.setLayoutProperty(id, 'visibility', v);
+        });
+      }
+    }
+
     if (window.innerWidth > 768) {
       map.addControl(
         new maplibregl.AttributionControl({ compact: true }),
         'bottom-right'
       );
+      // Start collapsed (icon only). MapLibre auto-expands the compact
+      // attribution the first time real attribution text becomes
+      // available (once sources have loaded), so undo that one time
+      // via observer rather than a one-off call made too early.
+      const attrib = document.querySelector('.maplibregl-ctrl-attrib');
+      if (attrib) {
+        const collapseOnce = new MutationObserver(() => {
+          if (attrib.classList.contains('maplibregl-compact-show')) {
+            attrib.classList.remove('maplibregl-compact-show');
+            attrib.removeAttribute('open');
+            collapseOnce.disconnect();
+          }
+        });
+        collapseOnce.observe(attrib, { attributes: true, attributeFilter: ['class'] });
+      }
+
       map.addControl(
         new maplibregl.TerrainControl({ source: 'terrain-dem' }),
         'bottom-right'
       );
+      map.addControl(new ImageryToggleControl(), 'bottom-right');
       map.addControl(
         new maplibregl.NavigationControl({ showCompass: false }),
         'bottom-right'
       );
     }
-    //   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.dragRotate.disable();
     map.keyboard.disable();
     map.touchZoomRotate.disableRotation();
@@ -1405,30 +1426,38 @@
       }, { once: true });
     });
 
-    /* ── In-page LiDAR panel ──
-       Opens in front of the still-running map and simply hides again on
+    /* ── In-page DIVERSA / LiDAR panels ──
+       Open in front of the still-running map and simply hide again on
        close, so the map is never reinitialized. */
+    const diversaPanel = document.getElementById('diversa-panel');
     const lidarPanel = document.getElementById('lidar-panel');
+    const navDiversa = document.getElementById('nav-diversa');
     const navKarte = document.getElementById('nav-karte');
     const navLidar = document.getElementById('nav-lidar');
 
+    function showView(view) {
+      diversaPanel.classList.toggle('open', view === 'diversa');
+      diversaPanel.setAttribute('aria-hidden', view === 'diversa' ? 'false' : 'true');
+      lidarPanel.classList.toggle('open', view === 'lidar');
+      lidarPanel.setAttribute('aria-hidden', view === 'lidar' ? 'false' : 'true');
+      navDiversa.classList.toggle('active', view === 'diversa');
+      navKarte.classList.toggle('active', view === 'karte');
+      navLidar.classList.toggle('active', view === 'lidar');
+    }
+
     function openLidarPanel(method) {
       if (method) showLidarMethod(method);
-      lidarPanel.classList.add('open');
-      lidarPanel.removeAttribute('aria-hidden');
-      navKarte.classList.remove('active');
-      navLidar.classList.add('active');
+      showView('lidar');
     }
 
     function closeLidarPanel() {
-      lidarPanel.classList.remove('open');
-      lidarPanel.setAttribute('aria-hidden', 'true');
-      navLidar.classList.remove('active');
-      navKarte.classList.add('active');
+      showView('karte');
     }
 
+    navDiversa.addEventListener('click', () => showView('diversa'));
+    navKarte.addEventListener('click', () => showView('karte'));
     navLidar.addEventListener('click', () => openLidarPanel());
-    navKarte.addEventListener('click', closeLidarPanel);
+    document.getElementById('diversa-panel-close-link').addEventListener('click', () => showView('karte'));
     document.getElementById('lidar-panel-close-link').addEventListener('click', closeLidarPanel);
 
     document.querySelectorAll('[data-lidar-method]').forEach(el => {
@@ -1500,11 +1529,6 @@
       });
       map.addLayer({ id: 'wms-sentinel2', type: 'raster', source: 'wms-sentinel2', maxzoom: 14, layout: { visibility: 'none' } });
       map.addLayer({ id: 'wms-ortho-ni', type: 'raster', source: 'wms-ortho-ni', minzoom: 14, layout: { visibility: 'none' } });
-      document.getElementById('toggle-wms').addEventListener('change', e => {
-        const v = e.target.checked ? 'visible' : 'none';
-        map.setLayoutProperty('wms-sentinel2', 'visibility', v);
-        map.setLayoutProperty('wms-ortho-ni', 'visibility', v);
-      });
     });
 
     map.on('load', () => {
@@ -1763,6 +1787,7 @@
         if (document.getElementById('lightbox').classList.contains('open')) closeLightbox();
         else if (document.getElementById('plot-modal').classList.contains('open')) closePlotModal();
         else if (lidarPanel.classList.contains('open')) closeLidarPanel();
+        else if (diversaPanel.classList.contains('open')) showView('karte');
       }
     });
 

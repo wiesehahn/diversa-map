@@ -45,7 +45,6 @@ a {
   z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 14px 20px;
   font-family: var(--font-ui);
 }
@@ -54,10 +53,16 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 7px 14px 7px 10px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: .04em;
   color: var(--c-text);
+  background: rgba(255, 255, 255, .72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 999px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, .08);
 }
 
 .site-nav-brand img {
@@ -68,6 +73,13 @@ a {
 .site-nav-links {
   display: flex;
   gap: 4px;
+  margin-left: auto;
+  padding: 4px;
+  background: rgba(255, 255, 255, .72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 999px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, .08);
 }
 
 .site-nav-links a,
@@ -93,6 +105,7 @@ a {
 .site-nav-links button.active {
   background: #2e3236;
   color: #fff;
+  font-weight: 600;
 }
 
 @media (max-width: 600px) {
