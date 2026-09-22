@@ -782,6 +782,211 @@
       text-decoration: underline;
     }
 
+    /* ────────────────────────────────────────────────────────────
+       Full-screen sideview carousel (all-plots gallery, ALS/MLS
+       index-synced) — layered on top of the still-open lidar-panel.
+    ──────────────────────────────────────────────────────────── */
+    #gallery-carousel {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: #f5f5f3;
+      flex-direction: column;
+    }
+
+    #gallery-carousel.open {
+      display: flex;
+    }
+
+    #carousel-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 60px 12px 16px;
+      border-bottom: 1px solid var(--c-border);
+      background: #fff;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    #carousel-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--c-muted);
+      flex-shrink: 0;
+    }
+
+    #carousel-header .page-close-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, .10);
+      color: #333;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    #carousel-header .page-close-btn:hover {
+      background: rgba(0, 0, 0, .22);
+    }
+
+    #carousel-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .carousel-rail {
+      /* Real native scrolling — mouse wheel, trackpad, and (critically)
+         genuine touch/momentum on mobile all just work here for free;
+         JS only steps in to reshape *wheel* input (see onCarouselWheel),
+         touch is never intercepted. Deliberately no CSS scroll-snap: it
+         turns out to snap back even a plain synchronous `scrollTop +=`
+         write between two script-driven nudges (not just user drags),
+         which silently cancels most of a fast wheel gesture's
+         accumulated movement. Final alignment is instead done entirely
+         in JS once scrolling actually settles (onCarouselSettled) —
+         which is also what native touch momentum ultimately relies on. */
+      flex: 1 1 auto;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px;
+      /* padding-top/bottom set in JS to exactly half the rail's own
+         height, so the first/last item can reach true center regardless
+         of header height (a vh-based guess would drift with it) */
+    }
+
+    .carousel-rail::-webkit-scrollbar {
+      display: none;
+    }
+
+    .carousel-idrail {
+      /* Mirrors the image rail's current position — not independently
+         scrollable, so it can't drift out of sync with what the user is
+         actually looking at. */
+      flex: 0 0 clamp(70px, 13vw, 120px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 6px;
+    }
+
+    .carousel-item {
+      /* Pure layout box — fixed size, fixed gap, NEVER touched by --d.
+         This is deliberate: "which item is nearest center" is measured
+         from this element's own (untransformed) position, and if that
+         same measurement also drove this element's own margin/transform,
+         the two would feed back into each other — shifting the margin
+         changes what "nearest" means, which can re-derive a different
+         margin, and so on, occasionally settling on the wrong item
+         entirely despite scrollTop being perfectly static. All of the
+         --d-driven visual motion instead lives one level down, on
+         .carousel-card (a transformed child does not affect its
+         parent's own layout position at all), so measurement stays
+         completely stable regardless of the visual effect layered on
+         top of it. */
+      flex-shrink: 0;
+      width: min(94%, 1000px);
+      aspect-ratio: 8 / 3;
+      margin-block: 12px;
+    }
+
+    .carousel-item .carousel-card {
+      height: 100%;
+      /* Shrinks and fades with distance from center (--d, unsigned,
+         0..1+); separately pulls toward center as it does (--sd, signed,
+         roughly -1.6..1.6) so shrunk neighbors visually overlap the
+         growing center card instead of leaving dead space — purely a
+         paint-time effect, since transform never affects layout.
+         --d/--sd are recomputed continuously from the real scroll
+         position (see updateCarouselVisuals), so a short linear
+         transition here tracks a finger/scroll 1:1 rather than lagging
+         behind it. */
+      transform: translateY(calc(var(--sd, 0) * -70px)) scale(calc(1 - min(var(--d, 0), 1) * .6));
+      opacity: calc(1 - min(var(--d, 0), 1) * .65);
+      transition: transform 80ms linear, opacity 80ms linear;
+      will-change: transform, opacity;
+    }
+
+    .carousel-card {
+      background: #fff;
+      /* not clickable here — the active card is already shown as large as
+         possible, so the shared .lidar-card zoom-in cursor doesn't apply */
+      cursor: default;
+    }
+
+    /* Motion here is driven entirely by --d, not :hover */
+    .carousel-rail .lidar-card:hover {
+      transform: none;
+      box-shadow: 0 2px 14px rgba(0, 0, 0, .14);
+    }
+
+    /* Minimal plot-id list — no boxed-off column, just labels floating on
+       the same background as the image rail. Only two sizes (active /
+       not) rather than a distance-graduated scale; color identifies plot
+       type, matching the map's own marker colors. */
+    .carousel-id-item {
+      flex-shrink: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 4px;
+      margin: 1px 0;
+      text-align: center;
+      color: var(--id-color, var(--c-muted));
+      opacity: .55;
+      transition: opacity 200ms ease, font-size 200ms ease;
+    }
+
+    .carousel-id-item.active {
+      font-size: 16px;
+      font-weight: 700;
+      opacity: 1;
+    }
+
+    @media (max-width: 600px) {
+      .carousel-idrail {
+        flex-basis: clamp(56px, 20vw, 90px);
+      }
+
+      .carousel-item {
+        width: min(96%, 480px);
+        margin-block: 8px;
+      }
+
+      .carousel-item .carousel-card {
+        transform: translateY(calc(var(--sd, 0) * -40px)) scale(calc(1 - min(var(--d, 0), 1) * .6));
+      }
+
+      .carousel-id-item {
+        font-size: 10px;
+      }
+
+      .carousel-id-item.active {
+        font-size: 13px;
+      }
+
+      #carousel-header {
+        padding: 12px 54px 10px 14px;
+      }
+
+      #carousel-title {
+        display: none;
+      }
+    }
+
     /* ── Lightbox ── */
     #lightbox {
       display: none;
@@ -1068,18 +1273,24 @@
       <div class="article-kicker">Methode</div>
       <h1 class="article-title">Wie wir den Wald vermessen</h1>
       <p class="article-lede">
-        Mit LiDAR erfassen wir die dreidimensionale Struktur von Waldbeständen - aus der Luft und
-        vom Boden aus. Beide Verfahren zusammen ergeben ein detailliertes Bild davon, wie sich
-        bewirtschaftete Waldbestände und Naturwaldflächen strukturell unterscheiden.
+        Mit LiDAR erfassen wir die Struktur von Waldbeständen - aus der Luft und
+        vom Boden aus. Mit den Methoden erhalten wir Daten auf unterschiedlichen Skalen und mit
+        unterschiedlichem Detailgrad. 
       </p>
 
       <!-- TODO: replace placeholder copy once final project text is available -->
       <div class="article-prose">
         <p>
           LiDAR (Light Detection and Ranging) misst mit Laserpulsen die Entfernung zu Millionen
-          Punkten in der Landschaft und erzeugt daraus eine dreidimensionale Punktwolke. Auf
-          dieser Karte kommen zwei Aufnahmeverfahren zum Einsatz, die sich in Perspektive und
+          Punkten in der Landschaft und erzeugt daraus ein dreidimensionales Abbild des Waldes. In
+          diesem Projekt kommen zwei Aufnahmeverfahren zum Einsatz, die sich in Perspektive und
           Detailgrad ergänzen.
+          Die Daten aus dem mobilen Laserscanner (MLS) welcher am Boden in der Hand getragen wird,
+        ermöglichen genaue Auswertungen beispielsweise zu gespeicherter Biomasse, oder der
+        Struktur auf Einzelbaumebene. Dagegen enthalten die Daten vom flugzeuggestützten
+        Laserscanning (ALS) deutlich weniger Details, gleichzeitig sind diese Informationen aber
+        flächendeckend verfügbar und ermöglichen Auswertungen auf Landschaftsebene. Beide
+        Verfahren zusammen ergeben ein detailliertes Bild der Waldstrukturen.
         </p>
       </div>
 
@@ -1094,17 +1305,16 @@
 
       <div class="method-panel" data-method="als">
         <p class="article-lede">
-          Flugzeug- oder drohnengestütztes Laserscanning erfasst ganze Waldbestände von oben -
-          und liefert damit den Überblick über Kronendach, Bestandshöhe und -struktur auf großer
-          Fläche.
+          Das flugzeuggestützte Laserscanning erfasst ganze Landschaften und Waldbestände von oben und liefert damit Informationen 
+          zu Geländeeigenschaften sowie Bestandsstruktur auf großer Fläche.
         </p>
         <!-- TODO: replace placeholder copy once final project text is available -->
         <div class="article-prose">
           <p>
-            Beim ALS wird ein Laserscanner an einem Flugzeug oder einer Drohne montiert und
-            überfliegt die Fläche in parallelen Bahnen. Ein Teil der Laserpulse durchdringt
-            Lücken im Kronendach und erreicht den Boden, sodass sowohl die Vegetationsstruktur
-            als auch das Geländerelief rekonstruiert werden können.
+            Beim ALS wird ein Laserscanner an einem Flugzeug montiert und scannt die Landchaft flächig in parallelen Bahnen. Ein Teil der Laserpulse durchdringt
+            kleinste Lücken im Kronendach und erreicht den Boden, sodass sowohl die Vegetationsstruktur als auch das Geländerelief rekonstruiert werden können. Die Daten 
+            liefern wertvolle Informationen auf lokaler Ebene beispielsweise zu Einzelbaumhöhen, Kronenlücken oder dem Mikrorelief des Bodens. Vor allem können wir damit aber
+            Informationen auf Landschaftsebene ableiten, beispielsweise zu Waldrändern, Bestandesheterogenität und Geomorphologie. 
           </p>
         </div>
         <div class="article-figure-grid">
@@ -1121,22 +1331,24 @@
         </div>
         <p class="article-sample-note">Beispielfläche NI-ND-10.</p>
 
-        <div class="article-kicker article-section-kicker">Alle Flächen — Seitenansicht (ALS)</div>
-        <div class="article-gallery" id="als-gallery"></div>
+        <div class="article-links">
+          <button type="button" class="carousel-open-btn" data-method="als">Alle Versuchsflächen ansehen →</button>
+        </div>
       </div>
 
       <div class="method-panel" data-method="mls" hidden>
         <p class="article-lede">
-          Bodengestütztes Laserscanning erfasst den Bestand von innen — mit deutlich höherer
+          Bodengestütztes Laserscanning erfasst den Bestand von innen - mit deutlich höherer
           Detailgenauigkeit an Stämmen, Totholz und Unterwuchs als aus der Luft möglich ist.
         </p>
         <!-- TODO: replace placeholder copy once final project text is available -->
         <div class="article-prose">
           <p>
-            Beim MLS wird ein Laserscanner auf einem Rucksack oder Fahrzeug durch den Bestand
-            bewegt. Da die Aufnahme direkt zwischen den Bäumen stattfindet, entstehen sehr dichte
-            Punktwolken von Stammverläufen, Kronenansätzen und liegendem Totholz — Details, die
-            aus der Vogelperspektive kaum sichtbar sind.
+            Beim MLS wird ein Laserscanner auf einem Rucksack montiert oder in der Hand durch den Bestand
+            bewegt. Da die Aufnahme direkt zwischen den Bäumen mit geringem Abstand stattfindet, entstehen sehr dichte
+            Punktwolken von Stammverläufen, Kronenansätzen und liegendem Totholz - Details, welche
+            aus der Vogelperspektive nicht erfasst werden können. Daraus können Stammverteilungspläne erstellt werden oder Informationen beispielsweise zu Baumdurchmessern, 
+            Aststrukturen oder dem Unterwuchs abgeleitet werden.
           </p>
         </div>
         <div class="article-figure-grid article-figure-grid-single">
@@ -1148,14 +1360,41 @@
         </div>
         <p class="article-sample-note">Beispielfläche NI-ND-10.</p>
 
-        <div class="article-kicker article-section-kicker">Alle Flächen — Seitenansicht (MLS)</div>
-        <div class="article-gallery" id="mls-gallery"></div>
+        <div class="article-links">
+          <button type="button" class="carousel-open-btn" data-method="mls">Alle Versuchsflächen ansehen →</button>
+        </div>
       </div>
 
       <div class="article-links">
         <button type="button" id="lidar-panel-close-link">Zur Karte →</button>
       </div>
     </main>
+  </div>
+
+  <!-- ── Full-screen sideview carousel (all-plots gallery, ALS/MLS index-synced) ── -->
+  <div id="gallery-carousel" role="dialog" aria-modal="true" aria-label="Alle Versuchsflächen — Seitenansicht"
+    aria-hidden="true">
+    <div id="carousel-header">
+      <div id="carousel-title">Seitenansicht — alle Flächen</div>
+      <div class="method-toggle" role="tablist" aria-label="LiDAR-Verfahren">
+        <button class="method-toggle-btn" data-carousel-method="als" role="tab" aria-selected="true">
+          Airborne (ALS)
+        </button>
+        <button class="method-toggle-btn" data-carousel-method="mls" role="tab" aria-selected="false">
+          Mobile (MLS)
+        </button>
+      </div>
+      <button id="carousel-close" class="page-close-btn" aria-label="Schließen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+    <div id="carousel-body">
+      <div id="carousel-rail" class="carousel-rail"></div>
+      <div id="carousel-idrail" class="carousel-idrail"></div>
+    </div>
   </div>
 
   <!-- ── Full-window plot modal ── -->
@@ -1296,8 +1535,7 @@
 
     /* ── Map ──
        View position (center/zoom) is remembered across page loads so
-       navigating away (e.g. via a direct link to /lidar/) and back doesn't
-       reset the view. */
+       navigating away and back (or reloading) doesn't reset the view. */
     const VIEW_STORAGE_KEY = 'diversa-map-view';
     let savedView = null;
     try {
@@ -1468,8 +1706,9 @@
       });
     });
 
-    // ALS/MLS switch within the panel
-    const methodToggleButtons = document.querySelectorAll('.method-toggle-btn');
+    // ALS/MLS switch within the panel (scoped to #lidar-panel so it doesn't
+    // pick up the gallery carousel's own, separate ALS/MLS toggle below)
+    const methodToggleButtons = document.querySelectorAll('#lidar-panel .method-toggle-btn');
     const methodPanels = document.querySelectorAll('.method-panel');
 
     function showLidarMethod(method) {
@@ -1487,33 +1726,366 @@
       btn.addEventListener('click', () => showLidarMethod(btn.dataset.method));
     });
 
-    // Both galleries share a single fetch of the plot list
-    fetch('../data/plots_diversa.geojson')
-      .then(res => res.json())
-      .then(data => {
-        const alsGallery = document.getElementById('als-gallery');
-        const mlsGallery = document.getElementById('mls-gallery');
-        data.features.forEach(({ properties }) => {
-          const plotId = properties.plot_id;
+    /* ── Full-screen sideview carousel ──
+       Native scrolling is the base layer: the image rail is a real
+       overflow-y:auto element, so mouse wheel, trackpad, AND genuine
+       touch/momentum on mobile all just work without any JS getting in
+       the way — touch is never intercepted at all. A continuous,
+       rAF-throttled 'scroll' listener derives which plot is "current"
+       from the actual scroll position (never a fixed item height) and
+       mirrors that onto the id-rail, which is display-only (not
+       independently scrollable, so it can't drift out of sync). Once
+       scrolling of any kind — wheel, trackpad, or touch momentum —
+       stops for a moment, we settle-align precisely to the nearest
+       plot; this one mechanism serves every input method.
+       The only place input is reshaped is desktop wheel events: a
+       single deliberate tick replaces the browser's default small-pixel
+       nudge with a clean one-item step, while sustained/fast wheel
+       input is applied directly and continuously (no per-event
+       animations to queue) and left for the shared settle-align to
+       clean up afterwards. Classification uses a rolling time window of
+       recent events rather than a fixed "gesture boundary", so a
+       trackpad that pauses briefly mid-scroll doesn't get reset to
+       "slow" — see onCarouselWheel.
+       carouselPlots is a plain, reorderable array rendered strictly in
+       its own order — a future "sort by attribute" only needs to reorder
+       this array and rebuild, no other part of this depends on the
+       original geojson order. */
+    let carouselPlots = [];
+    let carouselBuilt = false;
+    let carouselMethod = 'als';
+    let carouselScrollDirty = false;
+    let carouselProgrammatic = false; // true while a JS-driven scrollToIndex is in flight
+    let carouselAnimFrame = null; // in-flight custom scrollTop animation, if any
+    let carouselSettleTimer = null;
+    let carouselWheelHistory = []; // recent {t, absPx} — see onCarouselWheel
+    const CAROUSEL_SETTLE_MS = 150;        // silence this long = scrolling has actually stopped
+    const CAROUSEL_WHEEL_WINDOW_MS = 180;  // how far back "recent" wheel history looks
+    const CAROUSEL_WHEEL_FAST_VELOCITY = 1.2; // px/ms, over the window — magnitude AND frequency both matter
 
-          const alsFigure = document.createElement('figure');
-          alsFigure.innerHTML = `
-            <img src="../images/sideview/${plotId}.webp" alt="Seitenansicht der Fläche ${plotId} (ALS)" loading="lazy" />
-            <figcaption>${plotId}</figcaption>
-          `;
-          alsFigure.querySelector('img').onerror = () => alsFigure.remove();
-          alsGallery.appendChild(alsFigure);
+    async function loadCarouselPlots() {
+      if (carouselPlots.length) return carouselPlots;
+      const res = await fetch('../data/plots_diversa.geojson');
+      const data = await res.json();
+      carouselPlots = data.features.map(({ properties }) => ({
+        plotId: properties.plot_id,
+        plotType: properties.plot_type,
+        alsSrc: `../images/sideview/${properties.plot_id}.webp`,
+        mlsSrc: `../images/sideview/mls/${properties.plot_id}.webp`
+      }));
+      return carouselPlots;
+    }
 
-          const mlsFigure = document.createElement('figure');
-          mlsFigure.innerHTML = `
-            <img src="../images/sideview/mls/${plotId}.webp" alt="Seitenansicht der Fläche ${plotId} (MLS)" loading="lazy" />
-            <figcaption>${plotId}</figcaption>
-          `;
-          mlsFigure.querySelector('img').onerror = () => mlsFigure.remove();
-          mlsGallery.appendChild(mlsFigure);
-        });
-      })
-      .catch(err => console.error('Konnte Flächenliste nicht laden:', err));
+    function buildCarouselRails() {
+      const imgRail = document.getElementById('carousel-rail');
+      const idRail = document.getElementById('carousel-idrail');
+      carouselPlots.forEach((p, i) => {
+        const item = document.createElement('div');
+        item.className = 'carousel-item';
+        item.dataset.index = i;
+        item.dataset.plotId = p.plotId;
+        item.innerHTML = `<div class="carousel-card lidar-card"><img alt="Seitenansicht Fläche ${p.plotId}" loading="lazy" /></div>`;
+        imgRail.appendChild(item);
+
+        const idBtn = document.createElement('button');
+        idBtn.type = 'button';
+        idBtn.className = 'carousel-id-item';
+        idBtn.dataset.index = i;
+        idBtn.dataset.plotId = p.plotId;
+        idBtn.textContent = p.plotId;
+        // Colored by plot type, same palette as the map's own markers.
+        idBtn.style.setProperty('--id-color', p.plotType === 'managed' ? 'var(--c-managed)' : 'var(--c-rewilding)');
+        idBtn.addEventListener('click', () => jumpToIndex(i));
+        idRail.appendChild(idBtn);
+      });
+      imgRail.addEventListener('scroll', onCarouselScroll, { passive: true });
+      carouselBuilt = true;
+    }
+
+    function applyCarouselMethod(method) {
+      carouselMethod = method;
+      document.querySelectorAll('.carousel-item').forEach(item => {
+        const p = carouselPlots[item.dataset.index];
+        const card = item.querySelector('.carousel-card');
+        const img = card.querySelector('img');
+        const src = method === 'als' ? p.alsSrc : p.mlsSrc;
+        card.classList.remove('img-error');
+        img.onerror = () => card.classList.add('img-error');
+        img.onload = () => card.classList.remove('img-error');
+        img.src = src;
+      });
+      document.querySelectorAll('[data-carousel-method]').forEach(btn => {
+        const active = btn.dataset.carouselMethod === method;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active);
+      });
+    }
+
+    function imgRailEl() { return document.getElementById('carousel-rail'); }
+    function idRailEl() { return document.getElementById('carousel-idrail'); }
+
+    // Which plot is currently nearest the rail's center — derived fresh
+    // from real measured positions every time, never a fixed height or a
+    // separately-tracked index that could drift from the truth.
+    function getCurrentIndex() {
+      const rail = imgRailEl();
+      const rect = rail.getBoundingClientRect();
+      const centerY = rect.top + rect.height / 2;
+      let bestIdx = 0, bestDist = Infinity;
+      rail.querySelectorAll('.carousel-item').forEach(el => {
+        const r = el.getBoundingClientRect();
+        const d = Math.abs((r.top + r.height / 2) - centerY);
+        if (d < bestDist) { bestDist = d; bestIdx = Number(el.dataset.index); }
+      });
+      return bestIdx;
+    }
+
+    // Runs on every 'scroll' event on the image rail, rAF-throttled —
+    // fires continuously during native touch dragging, native/JS-driven
+    // wheel scrolling, and any programmatic scrollTo alike, so it's the
+    // single shared place that keeps visuals and the id-rail in sync
+    // with wherever the rail actually is right now.
+    function onCarouselScroll() {
+      if (carouselScrollDirty) return;
+      carouselScrollDirty = true;
+      requestAnimationFrame(() => {
+        carouselScrollDirty = false;
+        updateCarouselVisuals();
+      });
+      // A precise programmatic jump (scrollToIndex) is already exactly
+      // where it means to be — don't let the scroll events it causes
+      // re-arm a settle-correction against it, which risks a redundant
+      // second adjustment landing one item off from where the first one
+      // deliberately, correctly landed.
+      if (carouselProgrammatic) return;
+      clearTimeout(carouselSettleTimer);
+      carouselSettleTimer = setTimeout(onCarouselSettled, CAROUSEL_SETTLE_MS);
+    }
+
+    function updateCarouselVisuals() {
+      const rail = imgRailEl();
+      const rect = rail.getBoundingClientRect();
+      const centerY = rect.top + rect.height / 2;
+      let bestIdx = 0, bestDist = Infinity;
+      rail.querySelectorAll('.carousel-item').forEach(el => {
+        const r = el.getBoundingClientRect();
+        const elCenter = r.top + r.height / 2;
+        const signed = (elCenter - centerY) / (rect.height / 2);
+        const norm = Math.abs(signed);
+        el.style.setProperty('--d', norm.toFixed(3));
+        el.style.setProperty('--sd', Math.max(-1.6, Math.min(1.6, signed)).toFixed(3));
+        if (norm < bestDist) { bestDist = norm; bestIdx = Number(el.dataset.index); }
+      });
+      setActiveIdItem(bestIdx);
+      mirrorIdRailTo(bestIdx);
+    }
+
+    function setActiveIdItem(index) {
+      document.querySelectorAll('.carousel-id-item').forEach(el => {
+        el.classList.toggle('active', Number(el.dataset.index) === index);
+      });
+    }
+
+    // Keeps the id-rail (overflow:hidden, not independently scrollable)
+    // aligned to whatever plot the image rail is currently showing.
+    function mirrorIdRailTo(index) {
+      const idRail = idRailEl();
+      const target = idRail.querySelectorAll('.carousel-id-item')[index];
+      if (!target) return;
+      const railRect = idRail.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const delta = (targetRect.top + targetRect.height / 2) - (railRect.top + railRect.height / 2);
+      idRail.scrollTop += delta;
+    }
+
+    // Once scrolling has genuinely stopped — regardless of whether it was
+    // native touch momentum, native trackpad/wheel scrolling, or our own
+    // direct scrollTop nudges for a fast wheel gesture — align precisely
+    // to the nearest plot. This corrects any imprecise native momentum
+    // resting position using the exact same measurement as everything
+    // else here (shared item-position logic, per the design goal).
+    function onCarouselSettled() {
+      scrollToIndex(getCurrentIndex(), 260);
+    }
+
+    // Stops any in-flight custom scroll animation immediately — used
+    // whenever newer input needs to take over instead of stacking behind
+    // it (a fast wheel burst cutting off a single-step animation that
+    // hasn't finished yet, a new step/settle superseding an old one).
+    function cancelCarouselAnim() {
+      if (carouselAnimFrame) { cancelAnimationFrame(carouselAnimFrame); carouselAnimFrame = null; }
+      carouselProgrammatic = false;
+    }
+
+    // The one shared "go to this plot" primitive — used for the settle
+    // alignment, the deliberate single wheel-tick step, and clicking an
+    // id label. A hand-rolled rAF animation rather than native
+    // scrollBy({behavior:'smooth'}) — the native version's duration
+    // scales unpredictably with distance (a large jump can take well
+    // over a second) and, worse, fighting it with a direct scrollTop
+    // write moments later (as happens when a wheel-classified "slow"
+    // step is immediately followed by "fast" continuation) produces
+    // uncontrolled combined motion. A fixed, always-cancelable duration
+    // avoids both problems.
+    function scrollToIndex(index, durationMs) {
+      cancelCarouselAnim();
+      const rail = imgRailEl();
+      index = Math.max(0, Math.min(carouselPlots.length - 1, index));
+      const target = rail.querySelectorAll('.carousel-item')[index];
+      if (!target) return;
+      const rect = rail.getBoundingClientRect();
+      const t = target.getBoundingClientRect();
+      const targetTop = rail.scrollTop + (t.top + t.height / 2) - (rect.top + rect.height / 2);
+
+      // 'scroll' events fire asynchronously (after the write, not within
+      // it) — clearing carouselProgrammatic in the very same call that
+      // makes the LAST write means that write's own 'scroll' event still
+      // arrives after the flag is already false, arming a settle-snap
+      // against a jump that was already exactly on target. Wait one
+      // extra frame before clearing it so that event is covered too.
+      const clearProgrammaticNextFrame = () => requestAnimationFrame(() => { carouselProgrammatic = false; });
+
+      if (durationMs <= 0) {
+        carouselProgrammatic = true;
+        rail.scrollTop = targetTop;
+        clearProgrammaticNextFrame();
+        return;
+      }
+
+      const startTop = rail.scrollTop;
+      const delta = targetTop - startTop;
+      if (Math.abs(delta) < 0.5) return;
+      const startTime = performance.now();
+      carouselProgrammatic = true;
+      const tick = (now) => {
+        const p = Math.min(1, (now - startTime) / durationMs);
+        const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+        rail.scrollTop = startTop + delta * eased;
+        if (p < 1) {
+          carouselAnimFrame = requestAnimationFrame(tick);
+        } else {
+          carouselAnimFrame = null;
+          clearProgrammaticNextFrame();
+        }
+      };
+      carouselAnimFrame = requestAnimationFrame(tick);
+    }
+
+    // Cancels any pending settle-align in favor of an explicit jump (a
+    // wheel-tick step or an id-label click) — "the latest input wins"
+    // rather than stacking/queuing.
+    function jumpToIndex(index) {
+      clearTimeout(carouselSettleTimer);
+      scrollToIndex(index, 220);
+    }
+
+    function syncRailPadding() {
+      [imgRailEl(), idRailEl()].forEach(rail => {
+        const half = (rail.clientHeight / 2) + 'px';
+        rail.style.paddingTop = half;
+        rail.style.paddingBottom = half;
+      });
+    }
+
+    // Desktop wheel input is the only place we reshape native behavior:
+    // the browser's default per-notch scroll is a small, arbitrary pixel
+    // nudge, not "move by one item" — so a deliberate single tick is
+    // replaced with a clean one-item step. Sustained/fast input (a hard
+    // flick, spinning the wheel, or a continuous trackpad scroll) is
+    // instead applied directly to scrollTop, immediately and
+    // proportionally, then left for the shared settle-align (above) to
+    // land precisely once it stops — never a discrete per-event jump.
+    //
+    // Classification uses a ROLLING WINDOW of recent event timestamps
+    // rather than a fixed "new gesture after N ms of silence": that
+    // fixed-boundary approach is fragile in practice, because some
+    // trackpad drivers deliver continuous scrolling in bursts with small
+    // pauses between them — a hard reset on any pause meant real fast
+    // scrolling could get permanently misclassified as a string of
+    // separate slow taps. Here, as long as events keep landing within
+    // CAROUSEL_WHEEL_WINDOW_MS of each other, "fast" classification
+    // holds even across a brief pause; an isolated tick (no follow-up
+    // within the window) is simply the one-sample case and is always
+    // treated as deliberate.
+    function onCarouselWheel(e) {
+      e.preventDefault();
+      const now = performance.now();
+      const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; // normalize "line" mode
+
+      carouselWheelHistory = carouselWheelHistory.filter(h => now - h.t < CAROUSEL_WHEEL_WINDOW_MS);
+      carouselWheelHistory.push({ t: now, absPx: Math.abs(px) });
+
+      // True velocity over the window (total distance ÷ time span), not
+      // just how often events arrive — a device that reports many tiny
+      // increments during perfectly ordinary slow scrolling must not
+      // read as "fast" just because it's frequent; magnitude has to
+      // factor in too.
+      let fast = false;
+      if (carouselWheelHistory.length >= 2) {
+        const span = now - carouselWheelHistory[0].t;
+        const totalPx = carouselWheelHistory.reduce((s, h) => s + h.absPx, 0);
+        const velocity = totalPx / Math.max(1, span); // px/ms
+        fast = velocity > CAROUSEL_WHEEL_FAST_VELOCITY;
+      }
+
+      if (fast) {
+        // Cancel any in-flight single-step/settle animation first — a
+        // fast burst directly manipulating scrollTop while a previous
+        // animation is still easing toward its own target produces
+        // uncontrolled combined motion; the latest input should simply
+        // take over outright, not blend with what came before.
+        cancelCarouselAnim();
+        clearTimeout(carouselSettleTimer);
+        carouselSettleTimer = setTimeout(onCarouselSettled, CAROUSEL_SETTLE_MS);
+        imgRailEl().scrollTop += px;
+      } else if (!carouselAnimFrame) {
+        // A slow step is already in flight — a longer slow drag fires
+        // several qualifying "slow" events while it plays out, and each
+        // one restarting its own fresh jump toward (current+1) can
+        // compound into overshooting by one once earlier partial
+        // progress adds up. Let the in-flight step finish undisturbed;
+        // once it's done, a still-continuing slow drag is free to
+        // trigger the next one.
+        jumpToIndex(getCurrentIndex() + (px > 0 ? 1 : -1));
+      }
+    }
+
+    async function openGalleryCarousel(method) {
+      await loadCarouselPlots();
+      if (!carouselBuilt) buildCarouselRails();
+      applyCarouselMethod(method);
+      document.getElementById('gallery-carousel').classList.add('open');
+      document.getElementById('gallery-carousel').setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        syncRailPadding();
+        scrollToIndex(getCurrentIndex(), 0);
+        updateCarouselVisuals();
+      });
+    }
+
+    window.addEventListener('resize', () => {
+      if (!document.getElementById('gallery-carousel').classList.contains('open')) return;
+      syncRailPadding();
+      scrollToIndex(getCurrentIndex(), false);
+    });
+
+    function closeGalleryCarousel() {
+      document.getElementById('gallery-carousel').classList.remove('open');
+      document.getElementById('gallery-carousel').setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('.carousel-open-btn').forEach(btn => {
+      btn.addEventListener('click', () => openGalleryCarousel(btn.dataset.method));
+    });
+    document.getElementById('carousel-close').addEventListener('click', closeGalleryCarousel);
+    document.querySelectorAll('[data-carousel-method]').forEach(btn => {
+      btn.addEventListener('click', () => applyCarouselMethod(btn.dataset.carouselMethod));
+    });
+    // Wheel is intercepted (see onCarouselWheel); touch is deliberately
+    // left alone so native scrolling/momentum handles it entirely.
+    document.getElementById('carousel-body').addEventListener('wheel', onCarouselWheel, { passive: false });
 
     /* ── WMS imagery ── */
     map.on('load', () => {
@@ -1785,6 +2357,7 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         if (document.getElementById('lightbox').classList.contains('open')) closeLightbox();
+        else if (document.getElementById('gallery-carousel').classList.contains('open')) closeGalleryCarousel();
         else if (document.getElementById('plot-modal').classList.contains('open')) closePlotModal();
         else if (lidarPanel.classList.contains('open')) closeLidarPanel();
         else if (diversaPanel.classList.contains('open')) showView('karte');
