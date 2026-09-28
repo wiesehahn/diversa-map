@@ -238,7 +238,8 @@
     }
 
     #disturbanceLegend.active #legend-items {
-      display: block;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
     }
 
     .legend-item {
@@ -2086,23 +2087,51 @@
 
     /* ── Disturbance layers ── */
     const YEARS = {
-      '2018': '#7277fe', '2019': '#6c92f0', '2020': '#66ade1',
-      '2021': '#5fc9d3', '2022': '#59e4c5', '2023': '#acf2e2', '2024': '#d6f9f1'
+      '2011': '#7277fe', '2012': '#6f83f8', '2013': '#6c90f1', '2014': '#6a9cea',
+      '2015': '#67a9e3', '2016': '#64b6dd', '2017': '#61c3d6', '2018': '#5ecfd0',
+      '2019': '#5bdcc9', '2020': '#66e6c9', '2021': '#8cedd7', '2022': '#aff3e3',
+      '2023': '#c3f6ea', '2024': '#d6f9f1'
     };
     const yearActive = Object.fromEntries(Object.keys(YEARS).map(y => [y, true]));
     let disturbancesOn = false;
 
+    // one generalized layer for low zooms and one detailed layer for high
+    // zooms (see code/build_disturbance_pmtiles.R); both carry only `year`
+    const DISTURBANCE_LAYERS = [
+      { id: 'disturbances-overview', sourceLayer: 'disturbances_overview', maxzoom: 10 },
+      { id: 'disturbances-detail', sourceLayer: 'disturbances', minzoom: 10 }
+    ];
+    const yearExpr = ['to-string', ['get', 'year']];
+
+    function disturbanceFilter() {
+      const active = Object.keys(YEARS).filter(y => yearActive[y]);
+      return ['in', yearExpr, ['literal', active]];
+    }
+
+    function updateDisturbanceLayers() {
+      DISTURBANCE_LAYERS.forEach(l => {
+        map.setFilter(l.id, disturbanceFilter());
+        map.setLayoutProperty(l.id, 'visibility', disturbancesOn ? 'visible' : 'none');
+      });
+    }
+
     map.on('load', () => {
       map.addSource('disturbances', {
         type: 'vector',
-        url: 'pmtiles://https://raw.githubusercontent.com/wiesehahn/webmaps/main/data/disturbances_2018_2024.pmtiles'
+        encoding: 'mlt',
+        url: 'pmtiles://' + new URL('../data/disturbances_niedersachsen.pmtiles', location.href).href
       });
-      Object.entries(YEARS).forEach(([year, color]) => {
+      DISTURBANCE_LAYERS.forEach(l => {
         map.addLayer({
-          id: 'disturbances-' + year, type: 'fill',
-          filter: ['==', ['geometry-type'], 'Polygon'],
-          source: 'disturbances', 'source-layer': year,
-          paint: { 'fill-color': color, 'fill-opacity': 0.75 },
+          id: l.id, type: 'fill',
+          source: 'disturbances', 'source-layer': l.sourceLayer,
+          ...(l.minzoom !== undefined && { minzoom: l.minzoom }),
+          ...(l.maxzoom !== undefined && { maxzoom: l.maxzoom }),
+          filter: disturbanceFilter(),
+          paint: {
+            'fill-color': ['match', yearExpr, ...Object.entries(YEARS).flat(), '#999999'],
+            'fill-opacity': 0.75
+          },
           layout: { visibility: 'none' }
         });
       });
@@ -2139,7 +2168,7 @@
     function toggleYear(year) {
       if (!disturbancesOn) return;
       yearActive[year] = !yearActive[year];
-      map.setLayoutProperty('disturbances-' + year, 'visibility', yearActive[year] ? 'visible' : 'none');
+      updateDisturbanceLayers();
       document.querySelectorAll(`[data-year="${year}"]`).forEach(el => {
         el.classList.toggle('off', !yearActive[year]);
       });
@@ -2148,10 +2177,7 @@
     document.getElementById('disturbanceLegend-title').addEventListener('click', () => {
       disturbancesOn = !disturbancesOn;
       document.getElementById('disturbanceLegend').classList.toggle('active', disturbancesOn);
-      Object.keys(YEARS).forEach(year => {
-        map.setLayoutProperty('disturbances-' + year, 'visibility',
-          (disturbancesOn && yearActive[year]) ? 'visible' : 'none');
-      });
+      updateDisturbanceLayers();
     });
 
     document.getElementById('mobile-legend-btn').addEventListener('click', () => {
@@ -2160,11 +2186,7 @@
       // Toggle active class on button (visual feedback)
       document.getElementById('mobile-legend-btn').classList.toggle('active', disturbancesOn);
 
-      // Show/hide layers
-      Object.keys(YEARS).forEach(year => {
-        map.setLayoutProperty('disturbances-' + year, 'visibility',
-          (disturbancesOn && yearActive[year]) ? 'visible' : 'none');
-      });
+      updateDisturbanceLayers();
 
       // Open/close sheet
       if (disturbancesOn) {
