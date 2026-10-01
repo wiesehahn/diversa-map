@@ -374,7 +374,8 @@
       transition: transform 0.3s cubic-bezier(.4, 0, .2, 1);
       box-shadow: 0 -4px 24px rgba(0, 0, 0, .12);
       pointer-events: none;
-      /* default */
+      /* the sheet handles its own swipe-down; stops pull-to-refresh/scroll */
+      touch-action: none;
     }
 
     #mobile-legend-sheet.open {
@@ -2243,28 +2244,70 @@
       });
     }
 
-    document.getElementById('disturbanceLegend-title').addEventListener('click', () => {
-      disturbancesOn = !disturbancesOn;
-      document.getElementById('disturbanceLegend').classList.toggle('active', disturbancesOn);
+    function setDisturbances(on) {
+      disturbancesOn = on;
+      document.getElementById('disturbanceLegend').classList.toggle('active', on);
+      document.getElementById('mobile-legend-btn').classList.toggle('active', on);
       updateDisturbanceLayers();
+      if (!on) closeMobileSheet();
+    }
+
+    const legendSheet = document.getElementById('mobile-legend-sheet');
+
+    function openMobileSheet() {
+      legendSheet.classList.add('open');
+      document.getElementById('mobile-legend-overlay').style.display = 'block';
+    }
+
+    document.getElementById('disturbanceLegend-title').addEventListener('click', () => {
+      setDisturbances(!disturbancesOn);
     });
 
+    // tapping the map closes only the sheet; the button then reopens it
+    // instead of switching the layer off
     document.getElementById('mobile-legend-btn').addEventListener('click', () => {
-      disturbancesOn = !disturbancesOn;
-
-      // Toggle active class on button (visual feedback)
-      document.getElementById('mobile-legend-btn').classList.toggle('active', disturbancesOn);
-
-      updateDisturbanceLayers();
-
-      // Open/close sheet
-      if (disturbancesOn) {
-        document.getElementById('mobile-legend-sheet').classList.add('open');
-        document.getElementById('mobile-legend-overlay').style.display = 'block';
+      if (!disturbancesOn) {
+        setDisturbances(true);
+        openMobileSheet();
+      } else if (!legendSheet.classList.contains('open')) {
+        openMobileSheet();
       } else {
-        closeMobileSheet();
+        setDisturbances(false);
       }
     });
+
+    /* Swipe the sheet down to hide the legend and the layer */
+    let dragStartY = null, dragDy = 0, dragStartT = 0;
+
+    legendSheet.addEventListener('touchstart', e => {
+      if (!legendSheet.classList.contains('open')) return;
+      dragStartY = e.touches[0].clientY;
+      dragDy = 0;
+      dragStartT = performance.now();
+      legendSheet.style.transition = 'none';
+    }, { passive: true });
+
+    legendSheet.addEventListener('touchmove', e => {
+      if (dragStartY === null) return;
+      dragDy = Math.max(0, e.touches[0].clientY - dragStartY);
+      legendSheet.style.transform = `translateY(${dragDy}px)`;
+    }, { passive: true });
+
+    function endSheetDrag() {
+      if (dragStartY === null) return;
+      const velocity = dragDy / (performance.now() - dragStartT);
+      dragStartY = null;
+      // clearing the inline styles lets the CSS transition animate either
+      // back to the open position or (after setDisturbances) off screen
+      legendSheet.style.transition = '';
+      legendSheet.style.transform = '';
+      if (dragDy > legendSheet.offsetHeight * 0.25 || (dragDy > 20 && velocity > 0.5)) {
+        setDisturbances(false);
+      }
+    }
+
+    legendSheet.addEventListener('touchend', endSheetDrag);
+    legendSheet.addEventListener('touchcancel', endSheetDrag);
 
     /* ── Plot markers ── */
     map.on('load', () => {
