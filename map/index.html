@@ -268,6 +268,67 @@
       opacity: .3;
     }
 
+    /* ── Data attribution (collapsed "i" button, like the basemap one) ── */
+    .layer-attrib {
+      display: none;
+      padding: 0 5px 5px;
+      font-size: 10px;
+      color: var(--c-muted);
+    }
+
+    #disturbanceLegend.active .layer-attrib,
+    #mobile-legend-sheet .layer-attrib {
+      display: block;
+    }
+
+    .layer-attrib summary {
+      list-style: none;
+      width: 22px;
+      height: 22px;
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background var(--trans), color var(--trans);
+    }
+
+    .layer-attrib summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .layer-attrib summary:hover,
+    .layer-attrib[open] summary {
+      background: rgba(0, 0, 0, .05);
+      color: var(--c-text);
+    }
+
+    /* width: 0 + min-width: 100% keeps the citation out of the panel's
+       shrink-to-fit width, so it wraps to the legend instead of widening it */
+    .layer-attrib-text {
+      width: 0;
+      min-width: 100%;
+      box-sizing: border-box;
+      padding: 2px 7px 0;
+      line-height: 1.4;
+    }
+
+    .layer-attrib a {
+      color: inherit;
+    }
+
+    #mobile-legend-sheet .layer-attrib {
+      margin-top: 10px;
+      padding: 0;
+      font-size: 11px;
+    }
+
+    #mobile-legend-sheet .layer-attrib summary {
+      width: 32px;
+      height: 32px;
+    }
+
     /* ── Mobile legend button — lives inside #control ── */
     #mobile-legend-btn {
       display: none;
@@ -1190,6 +1251,10 @@
     <div class="sheet-handle"></div>
     <div class="sheet-title">Waldschäden</div>
     <div class="sheet-legend-items" id="mobile-legend-items"></div>
+    <details class="layer-attrib">
+      <summary aria-label="Quellenangabe Waldschäden"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7.25" y="7" width="1.5" height="5" rx=".75" fill="currentColor"/><circle cx="8" cy="4.75" r="1" fill="currentColor"/></svg></summary>
+      <div class="layer-attrib-text">Daten: <a href="https://doi.org/10.5281/zenodo.21722408" target="_blank" rel="noopener">European Forest Disturbance Atlas v3</a> (Viana-Soto et al. 2026), data modified</div>
+    </details>
   </div>
   <div id="mobile-legend-overlay" style="display:none;position:fixed;inset:0;z-index:199;" onclick="closeMobileSheet()">
   </div>
@@ -1204,6 +1269,10 @@
     <nav id="disturbanceLegend">
       <h3 id="disturbanceLegend-title">Waldschäden</h3>
       <div id="legend-items"></div>
+      <details class="layer-attrib">
+        <summary aria-label="Quellenangabe Waldschäden"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7.25" y="7" width="1.5" height="5" rx=".75" fill="currentColor"/><circle cx="8" cy="4.75" r="1" fill="currentColor"/></svg></summary>
+        <div class="layer-attrib-text">Daten: <a href="https://doi.org/10.5281/zenodo.21722408" target="_blank" rel="noopener">European Forest Disturbance Atlas v3</a> (Viana-Soto et al. 2026), data modified</div>
+      </details>
     </nav>
 
     <!-- Mobile legend button (opens bottom sheet) -->
